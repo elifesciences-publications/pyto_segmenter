@@ -49,11 +49,12 @@ class PytoSegmentObj:
             reassign_pix_obs method for details. 
     '''
 
-    def __init__(self, filename, raw_img, gaussian_img, threshold,
+    def __init__(self, f_directory, filename, raw_img, gaussian_img, threshold,
                  threshold_img, filled_img, dist_map, smooth_dist_map,
                  maxima, labs, watershed_output, filled_cells, final_cells,
                  segmentation_log):
         '''initialize the PytoSegmentObject with segmentation data.'''
+        self.f_directory = f_directory
         self.filename = filename
         self.raw_img = raw_img
         self.gaussian_img = gaussian_img
@@ -92,6 +93,40 @@ class PytoSegmentObj:
                                      structure = np.ones(shape = (1,5,5)))
         masked_maxima = np.ma.masked_where(vis_maxima == 0, vis_maxima)
         plot_masked_maxima(masked_maxima, self.smooth_dist_map)
+
+    ## OUTPUT METHODS ##
+
+    def output_images(self):
+        '''Write all images to a new subdirectory.
+        
+        Write all images associated with the PytoSegmentObj to a new
+        directory. Name that directory according to the filename of the initial
+        image that the object was derived from. This new directory should be a
+        subdirectory to the directory containing the original raw image.
+        '''
+        #TODO: Complete this method
+        os.chdir(f_directory)
+        if not os.path.isdir(f_directory + filename[0:filename.index('.')-1]):
+            os.mkdir(f_directory + filename[0:filename.index('.')-1])
+        os.chdir(f_directory + filename[0:filename.index('.')-1])
+        io.imwrite('raw_'+filename, raw_img)
+        io.imwrite('gaussian_'+filename, gaussian_img)
+        io.imwrite('threshold_'+filename, threshold_img)
+        io.imwrite('filled_threshold_'+filename, filled_img)
+        io.imwrite('dist_'+filename, dist_map)
+        io.imwrite('smooth_dist_'+filename,smooth_dist_map)
+        io.imwrite('maxima_'+filename,maxima)
+        io.imwrite('wshed_'+filename,watershed_output)
+        io.imwrite('filled_cells_'+filename, filled_cells)
+        io.imwrite('final_cells_'+filename, final_cells)
+    def output_plots(self):
+        '''Write PDFs of slice-by-slice plots.
+        
+        Output: PDF plots of each image within PytoSegmentObj in a directory
+        named for the original filename they were generated from. Plots are
+        generated using the plot_stack method and plotting methods defined
+        here.
+        '''
 
     ## HELPER METHODS ##
 
@@ -192,15 +227,17 @@ class PytoSegmentObj:
 
 class PytoSegmenter:
     
-    def __init__(self):
+    def __init__(self, image):
         self.log = []
+        segment(image)
 
     def segment(self, filename, threshold):
         ## start timing
         starttime = time.time()
         ## DATA IMPORT AND PREPROCESSING
+        f_directory = os.getcwd()
         self.log.append('reading ' + filename + ' ...')
-        raw_img = io.imread(input_img)
+        raw_img = io.imread(filename)
         self.log.append('raw image imported.')
         # next step's gaussian filter assumes 100x obj and 0.2 um slices
         self.log.append('performing gaussian filtering...')
@@ -250,6 +287,11 @@ class PytoSegmenter:
         endtime = time.time()
         runningtime = endtime - starttime
         self.log.append('time elapsed: ' + str(runningtime) + ' seconds')
+        return PytoSegmentObj(f_directory, filename, raw_img, gaussian_img, threshold,
+                 threshold_img, filled_img, dist_map, smooth_dist_map,
+                 maxima, labs, watershed_output, filled_cells, final_cells,
+                 segmentation_log):
+
 
     def fill_cells_2d(self, cell_img):
         '''Go cell-by-cell in a watershed-segmented image. 
@@ -284,7 +326,7 @@ class PytoSegmenter:
             reassigned_cells[i,:,:] = reassign_pixels_2d(filled_cells[i,:,:])
             self.log.append('    slice ' + str(i) + ' complete.')
         return reassigned_cells
-    
+
     def reassign_pixels_2d(self, watershed_img_2d):
         '''In 2D, go over each segmented pixel in the image with a 
         structuring element. Measure the frequency of each different 
@@ -356,3 +398,13 @@ class PytoSegmenter:
             counter += 1
         self.log.append('    number of iterations = ' + str(counter))
         return new_img
+
+
+class BatchPytoSegmenter:
+    '''Batch segment all files in a directory.
+
+    Attributes:
+        directory: path to the files to be segmented.
+        files: a dictionary 
+
+
