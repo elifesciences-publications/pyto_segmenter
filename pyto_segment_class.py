@@ -71,28 +71,55 @@ class PytoSegmentObj:
         self.slices = self.raw_img.shape[0]
         self.height = self.raw_img.shape[1]
         self.width = self.raw_img.shape[2]
+        self.log = segmentation_log
 
     def __repr__(self):
         return 'PytoSegmentObj '+ self.get_filename()
 
     ## PLOTTING METHODS ##    
-    def plot_raw_img(self):
+    def plot_raw_img(self,display = False):
         plot_stack(self.raw_img, colormap = 'gray')
-    def plot_gaussian_img(self):
+        if display == True:
+            plt.show()
+    def plot_gaussian_img(self, display = False):
         plot_stack(self.gaussian_img, colormap = 'gray')
-    def plot_threshold_img(self):
+        if display == True:
+            plt.show()
+    def plot_threshold_img(self, display = False):
         plot_stack(self.threshold_img, colormap = 'gray')
-    def plot_filled_img(self):
+        if display == True:
+            plt.show()
+    def plot_filled_img(self, display = False):
         plot_stack(self.filled_img, colormap = 'gray')
-    def plot_dist_map(self):
+        if display == True:
+            plt.show()
+    def plot_dist_map(self, display = False):
         plot_stack(self.dist_map)
-    def plot_smooth_dist_map(self):
+        if display == True:
+            plt.show()
+    def plot_smooth_dist_map(self, display = False):
         plot_stack(self.smooth_dist_map)
-    def plot_maxima(self):
+        if display == True:
+            plt.show()
+    def plot_maxima(self, display = False):
         vis_maxima = binary_dilation(self.maxima,
                                      structure = np.ones(shape = (1,5,5)))
         masked_maxima = np.ma.masked_where(vis_maxima == 0, vis_maxima)
         plot_masked_maxima(masked_maxima, self.smooth_dist_map)
+        if display == True:
+            plt.show()
+    def plot_watershed(self, display = False):
+        plot_stack(self.watershed_output)
+        if display == True:
+            plt.show()
+    def plot_filled_cells(self, display = False):
+        plot_stack(self.filled_cells)
+        if display == True:
+            plt.show()
+    def plot_final_cells(self, display = False):
+        plot_stack(self.final_cells)
+        if display == True:
+            plt.show()
 
     ## OUTPUT METHODS ##
 
@@ -104,21 +131,23 @@ class PytoSegmentObj:
         image that the object was derived from. This new directory should be a
         subdirectory to the directory containing the original raw image.
         '''
-        #TODO: Complete this method
-        os.chdir(f_directory)
-        if not os.path.isdir(f_directory + filename[0:filename.index('.')-1]):
-            os.mkdir(f_directory + filename[0:filename.index('.')-1])
-        os.chdir(f_directory + filename[0:filename.index('.')-1])
-        io.imwrite('raw_'+filename, raw_img)
-        io.imwrite('gaussian_'+filename, gaussian_img)
-        io.imwrite('threshold_'+filename, threshold_img)
-        io.imwrite('filled_threshold_'+filename, filled_img)
-        io.imwrite('dist_'+filename, dist_map)
-        io.imwrite('smooth_dist_'+filename,smooth_dist_map)
-        io.imwrite('maxima_'+filename,maxima)
-        io.imwrite('wshed_'+filename,watershed_output)
-        io.imwrite('filled_cells_'+filename, filled_cells)
-        io.imwrite('final_cells_'+filename, final_cells)
+        os.chdir(self.f_directory)
+        if not os.path.isdir(self.f_directory + 
+                             self.filename[0:self.filename.index('.')-1]):
+            os.mkdir(self.f_directory + 
+                     self.filename[0:self.filename.index('.')-1])
+        os.chdir(self.f_directory + 
+                 self.filename[0:self.filename.index('.')-1])
+        io.imwrite('raw_'+self.filename, self.raw_img)
+        io.imwrite('gaussian_'+self.filename, self.gaussian_img)
+        io.imwrite('threshold_'+self.filename, self.threshold_img)
+        io.imwrite('filled_threshold_'+self.filename, self.filled_img)
+        io.imwrite('dist_'+self.filename, self.dist_map)
+        io.imwrite('smooth_dist_'+self.filename,self.smooth_dist_map)
+        io.imwrite('maxima_'+self.filename,self.maxima)
+        io.imwrite('wshed_'+self.filename,self.watershed_output)
+        io.imwrite('filled_cells_'+self.filename, self.filled_cells)
+        io.imwrite('final_cells_'+self.filename, self.final_cells)
     def output_plots(self):
         '''Write PDFs of slice-by-slice plots.
         
@@ -127,6 +156,38 @@ class PytoSegmentObj:
         generated using the plot_stack method and plotting methods defined
         here.
         '''
+        os.chdir(self.f_directory)
+        if not os.path.isdir(self.f_directory + self.filename[0:self.filename.index('.')-1]):
+            os.mkdir(self.f_directory + self.filename[0:self.filename.index('.')-1])
+        os.chdir(self.f_directory + self.filename[0:self.filename.index('.')-1])
+        self.plot_raw_img()
+        plt.savefig('praw_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+        self.plot_gaussian_img()
+        plt.savefig('pgaussian_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+        self.plot_threshold_img()
+        plt.savefig('pthreshold_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+        self.plot_filled_img()
+        plt.savefig('pfilled_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+        self.plot_dist_map()
+        plt.savefig('pdist_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+        self.plot_smooth_dist_map()
+        plt.savefig('psmooth_dist_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+        self.plot_maxima()
+        plt.savefig('pmaxima_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+        self.plot_watershed()
+        plt.savefig('pwshed_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+        self.plot_filled_cells()
+        plt.savefig('pfilled_cells_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+        self.plot_final_cells()
+        plt.savefig('pfinal_cells_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+    def output_all(self):
+        os.chdir(self.f_directory)
+        if not os.path.isdir(self.f_directory + self.filename[0:self.filename.index('.')-1]):
+            os.mkdir(self.f_directory + self.filename[0:self.filename.index('.')-1])
+        os.chdir(self.f_directory + self.filename[0:self.filename.index('.')-1])
+        output_plots()
+        output_images()
+        mk_log_file('log_'+self.filename)
 
     ## HELPER METHODS ##
 
@@ -179,8 +240,6 @@ class PytoSegmentObj:
             f.set_figwidth(16)
             f.set_figheight(4*np.ceil(nimgs/4))
             f.show() # TODO: IMPLEMENT OPTIONAL SAVING OF THE PLOT
-
-
     def plot_maxima_stack(masked_max, smooth_dist):
         ''' Creates a matplotlib plot object in which each slice from the image
         is displayed as a single subplot, in a 4-by-n matrix (n depends upon
@@ -223,6 +282,19 @@ class PytoSegmentObj:
             f.set_figwidth(16)
             f.set_figheight(4*np.ceil(nimgs/4))
             f.show() # TODO: IMPLEMENT OPTIONAL SAVING OF THE PLOT
+    def mk_log_file(self, fname):
+        '''Write the log file list to a text file.
+        kwargs:
+            fname: filename to write to.
+            '''
+        with open(fname, 'w') as f:
+            for s in self.log:
+                f.write(s + '\n')
+            f.write('number of slices: ' + str(self.slices) + '\n')
+            f.write('width: ' + str(self.width) + '\n')
+            f.write('height: ' + str(self.height) + '\n')
+            f.write('binary threshold: ' + str(self.threshold) + '\n')
+            f.close()
 
 
 class PytoSegmenter:
@@ -290,7 +362,7 @@ class PytoSegmenter:
         return PytoSegmentObj(f_directory, filename, raw_img, gaussian_img, threshold,
                  threshold_img, filled_img, dist_map, smooth_dist_map,
                  maxima, labs, watershed_output, filled_cells, final_cells,
-                 segmentation_log):
+                 segmentation_log)
 
 
     def fill_cells_2d(self, cell_img):
@@ -402,9 +474,8 @@ class PytoSegmenter:
 
 class BatchPytoSegmenter:
     '''Batch segment all files in a directory.
-
     Attributes:
         directory: path to the files to be segmented.
-        files: a dictionary 
-
-
+        files: a dictionary.
+        '''
+    pass
