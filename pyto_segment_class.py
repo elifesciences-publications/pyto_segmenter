@@ -1,5 +1,9 @@
+'''Classes and methods for segmenting cells based on cytosolic fluorescence.'''
+
 ## IMPORT DEPENDENCIES
 import os
+import sys
+import pickle
 import time
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,8 +16,8 @@ from scipy.ndimage.morphology import distance_transform_edt
 
 
 class PytoSegmentObj:
-    ''' segmentation data from a cytosolic fluorescence image.
-    
+    # TODO: ADD NEW ATTRIBUTES
+    ''' segmentation data from a cytosolic fluorescence image.   
     Attributes:
         filename (str): the filename for the original raw fluroescence
             image.
@@ -54,70 +58,71 @@ class PytoSegmentObj:
                  maxima, labs, watershed_output, filled_cells, final_cells,
                  segmentation_log):
         '''initialize the PytoSegmentObject with segmentation data.'''
+        self.log.append('creating PytoSegmentObject...')
         self.f_directory = f_directory
         self.filename = filename
-        self.raw_img = raw_img
-        self.gaussian_img = gaussian_img
+        self.raw_img = raw_img.astype('uint16')
+        self.gaussian_img = gaussian_img.astype('uint16')
         self.threshold = threshold
-        self.threshold_img = threshold_img
-        self.filled_img = filled_img
-        self.dist_map = dist_map
-        self.smooth_dist_map = smooth_dist_map
-        self.maxima = maxima
-        self.labs = labs
-        self.watershed_output = watershed_output
-        self.filled_cells = filled_cells
-        self.final_cells = final_cells
+        self.threshold_img = threshold_img.astype('uint16')
+        self.filled_img = filled_img.astype('uint16')
+        self.dist_map = dist_map.astype('uint16')
+        self.smooth_dist_map = smooth_dist_map.astype('uint16')
+        self.maxima = maxima.astype('uint16')
+        self.labs = labs.astype('uint16')
+        self.watershed_output = watershed_output.astype('uint16')
+        self.filled_cells = filled_cells.astype('uint16')
+        self.final_cells = final_cells.astype('uint16')
         self.slices = self.raw_img.shape[0]
         self.height = self.raw_img.shape[1]
         self.width = self.raw_img.shape[2]
         self.log = segmentation_log
 
     def __repr__(self):
-        return 'PytoSegmentObj '+ self.get_filename()
+        return 'PytoSegmentObj '+ self.filename
 
     ## PLOTTING METHODS ##    
     def plot_raw_img(self,display = False):
-        plot_stack(self.raw_img, colormap = 'gray')
+        self.plot_stack(self.raw_img, colormap = 'gray')
         if display == True:
             plt.show()
     def plot_gaussian_img(self, display = False):
-        plot_stack(self.gaussian_img, colormap = 'gray')
+        self.plot_stack(self.gaussian_img, colormap = 'gray')
         if display == True:
             plt.show()
     def plot_threshold_img(self, display = False):
-        plot_stack(self.threshold_img, colormap = 'gray')
+        self.plot_stack(self.threshold_img, colormap = 'gray')
         if display == True:
             plt.show()
     def plot_filled_img(self, display = False):
-        plot_stack(self.filled_img, colormap = 'gray')
+        self.plot_stack(self.filled_img, colormap = 'gray')
         if display == True:
             plt.show()
     def plot_dist_map(self, display = False):
-        plot_stack(self.dist_map)
+        self.plot_stack(self.dist_map)
         if display == True:
             plt.show()
     def plot_smooth_dist_map(self, display = False):
-        plot_stack(self.smooth_dist_map)
+        self.plot_stack(self.smooth_dist_map)
         if display == True:
             plt.show()
     def plot_maxima(self, display = False):
         vis_maxima = binary_dilation(self.maxima,
                                      structure = np.ones(shape = (1,5,5)))
         masked_maxima = np.ma.masked_where(vis_maxima == 0, vis_maxima)
-        plot_masked_maxima(masked_maxima, self.smooth_dist_map)
+        self.plot_maxima_stack(masked_maxima, self.smooth_dist_map)
         if display == True:
             plt.show()
     def plot_watershed(self, display = False):
-        plot_stack(self.watershed_output)
+        self.plot_stack(self.watershed_output)
         if display == True:
             plt.show()
     def plot_filled_cells(self, display = False):
-        plot_stack(self.filled_cells)
+        self.plot_stack(self.filled_cells)
         if display == True:
             plt.show()
     def plot_final_cells(self, display = False):
-        plot_stack(self.final_cells)
+        self.plot_stack(self.final_cells)
         if display == True:
             plt.show()
 
@@ -132,22 +137,24 @@ class PytoSegmentObj:
         subdirectory to the directory containing the original raw image.
         '''
         os.chdir(self.f_directory)
-        if not os.path.isdir(self.f_directory + 
-                             self.filename[0:self.filename.index('.')-1]):
-            os.mkdir(self.f_directory + 
-                     self.filename[0:self.filename.index('.')-1])
-        os.chdir(self.f_directory + 
-                 self.filename[0:self.filename.index('.')-1])
-        io.imwrite('raw_'+self.filename, self.raw_img)
-        io.imwrite('gaussian_'+self.filename, self.gaussian_img)
-        io.imwrite('threshold_'+self.filename, self.threshold_img)
-        io.imwrite('filled_threshold_'+self.filename, self.filled_img)
-        io.imwrite('dist_'+self.filename, self.dist_map)
-        io.imwrite('smooth_dist_'+self.filename,self.smooth_dist_map)
-        io.imwrite('maxima_'+self.filename,self.maxima)
-        io.imwrite('wshed_'+self.filename,self.watershed_output)
-        io.imwrite('filled_cells_'+self.filename, self.filled_cells)
-        io.imwrite('final_cells_'+self.filename, self.final_cells)
+        self.log.append('creating output directory...')
+        if not os.path.isdir(self.f_directory + '/' +
+                             self.filename[0:self.filename.index('.')]):
+            os.mkdir(self.f_directory + '/' +
+                     self.filename[0:self.filename.index('.')])
+        os.chdir(self.f_directory + '/' +
+                 self.filename[0:self.filename.index('.')])
+        self.log.append('writing images...')
+        io.imsave('raw_'+self.filename, self.raw_img)
+        io.imsave('gaussian_'+self.filename, self.gaussian_img)
+        io.imsave('threshold_'+self.filename, self.threshold_img)
+        io.imsave('filled_threshold_'+self.filename, self.filled_img)
+        io.imsave('dist_'+self.filename, self.dist_map)
+        io.imsave('smooth_dist_'+self.filename,self.smooth_dist_map)
+        io.imsave('maxima_'+self.filename,self.maxima)
+        io.imsave('wshed_'+self.filename,self.watershed_output)
+        io.imsave('filled_cells_'+self.filename, self.filled_cells)
+        io.imsave('final_cells_'+self.filename, self.final_cells)
     def output_plots(self):
         '''Write PDFs of slice-by-slice plots.
         
@@ -157,41 +164,74 @@ class PytoSegmentObj:
         here.
         '''
         os.chdir(self.f_directory)
-        if not os.path.isdir(self.f_directory + self.filename[0:self.filename.index('.')-1]):
-            os.mkdir(self.f_directory + self.filename[0:self.filename.index('.')-1])
-        os.chdir(self.f_directory + self.filename[0:self.filename.index('.')-1])
+        if not os.path.isdir(self.f_directory + '/' +
+                             self.filename[0:self.filename.index('.')]):
+            self.log.append('creating output directory...')
+            os.mkdir(self.f_directory + '/' +
+                     self.filename[0:self.filename.index('.')])
+        os.chdir(self.f_directory + '/' +
+                 self.filename[0:self.filename.index('.')])
+        self.log.append('saving plots...')
         self.plot_raw_img()
-        plt.savefig('praw_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+        plt.savefig('praw_'+self.filename[0:self.filename.index('.')]+'.pdf')
         self.plot_gaussian_img()
-        plt.savefig('pgaussian_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+        plt.savefig('pgaussian_' +
+                    self.filename[0:self.filename.index('.')]+'.pdf')
         self.plot_threshold_img()
-        plt.savefig('pthreshold_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+        plt.savefig('pthreshold_' +
+                    self.filename[0:self.filename.index('.')]+'.pdf')
         self.plot_filled_img()
-        plt.savefig('pfilled_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+        plt.savefig('pfilled_' +
+                    self.filename[0:self.filename.index('.')]+'.pdf')
         self.plot_dist_map()
-        plt.savefig('pdist_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+        plt.savefig('pdist_' +
+                    self.filename[0:self.filename.index('.')]+'.pdf')
         self.plot_smooth_dist_map()
-        plt.savefig('psmooth_dist_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+        plt.savefig('psmooth_dist_' + 
+                    self.filename[0:self.filename.index('.')]+'.pdf')
         self.plot_maxima()
-        plt.savefig('pmaxima_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+        plt.savefig('pmaxima_' +
+                    self.filename[0:self.filename.index('.')]+'.pdf')
         self.plot_watershed()
-        plt.savefig('pwshed_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+        plt.savefig('pwshed_' +
+                    self.filename[0:self.filename.index('.')]+'.pdf')
         self.plot_filled_cells()
-        plt.savefig('pfilled_cells_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+        plt.savefig('pfilled_cells_' +
+                    self.filename[0:self.filename.index('.')]+'.pdf')
         self.plot_final_cells()
-        plt.savefig('pfinal_cells_'+self.filename[0:self.filename.index('.')-1]+'.pdf')
+        plt.savefig('pfinal_cells_' +
+                    self.filename[0:self.filename.index('.')]+'.pdf')
+    def pickle(self):
+        '''pickle the PytoSegmentObj for later loading.'''
+        if not os.path.isdir(self.f_directory + '/' +
+                             self.filename[0:self.filename.index('.')]):
+            self.log.append('creating output directory...')
+            os.mkdir(self.f_directory + '/' + 
+                     self.filename[0:self.filename.index('.')])
+        os.chdir(self.f_directory + '/' + 
+                 self.filename[0:self.filename.index('.')])
+        with open('pickled_' +
+                  self.filename[0:self.filename.index('.')] + 
+                  '.pickle', 'wb') as f:
+            pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
+        f.close()
     def output_all(self):
         os.chdir(self.f_directory)
-        if not os.path.isdir(self.f_directory + self.filename[0:self.filename.index('.')-1]):
-            os.mkdir(self.f_directory + self.filename[0:self.filename.index('.')-1])
-        os.chdir(self.f_directory + self.filename[0:self.filename.index('.')-1])
-        output_plots()
-        output_images()
-        mk_log_file('log_'+self.filename)
+        if not os.path.isdir(self.f_directory + '/' +
+                             self.filename[0:self.filename.index('.')]):
+            os.mkdir(self.f_directory + '/' +
+                     self.filename[0:self.filename.index('.')])
+        os.chdir(self.f_directory + '/' +
+                 self.filename[0:self.filename.index('.')])
+        self.log.append('outputting all data...')
+        self.output_plots()
+        self.output_images()
+        self.mk_log_file('log_'+self.filename[0:self.filename.index('.')]+'.txt')
+        self.pickle()
 
     ## HELPER METHODS ##
 
-    def plot_stack(stack_arr, colormap='jet'):
+    def plot_stack(self, stack_arr, colormap='jet'):
         ''' Create a matplotlib plot with each subplot containing a slice.
         
         Keyword arguments:
@@ -240,12 +280,13 @@ class PytoSegmentObj:
             f.set_figwidth(16)
             f.set_figheight(4*np.ceil(nimgs/4))
             f.show() # TODO: IMPLEMENT OPTIONAL SAVING OF THE PLOT
-    def plot_maxima_stack(masked_max, smooth_dist):
+    def plot_maxima_stack(self, masked_max, smooth_dist):
+
         ''' Creates a matplotlib plot object in which each slice from the image
         is displayed as a single subplot, in a 4-by-n matrix (n depends upon
         the number of slices in the image)'''
 
-        nimgs = stack_arr.shape[0] # z axis of array dictates number of slices
+        nimgs = masked_max.shape[0] # z axis of array dictates number of slices
         # plot with 4 imgs across
 
         # determine how many rows and columns of images there are
@@ -259,7 +300,7 @@ class PytoSegmentObj:
                 axarr[i].xaxis.set_visible(False)
                 axarr[i].yaxis.set_visible(False)
             f.set_figwidth(16)
-            f.set_figheight(4)        
+            f.set_figheight(4)
             f.show() # TODO: IMPLEMENT OPTIONAL SAVING OF THE PLOT
 
         else:
@@ -287,6 +328,7 @@ class PytoSegmentObj:
         kwargs:
             fname: filename to write to.
             '''
+        self.log.append('making log file...')
         with open(fname, 'w') as f:
             for s in self.log:
                 f.write(s + '\n')
@@ -299,17 +341,18 @@ class PytoSegmentObj:
 
 class PytoSegmenter:
     
-    def __init__(self, image):
+    def __init__(self, filename, threshold):
         self.log = []
-        segment(image)
+        self.filename = filename
+        self.threshold = threshold
 
-    def segment(self, filename, threshold):
+    def segment(self):
         ## start timing
         starttime = time.time()
         ## DATA IMPORT AND PREPROCESSING
         f_directory = os.getcwd()
-        self.log.append('reading ' + filename + ' ...')
-        raw_img = io.imread(filename)
+        self.log.append('reading ' + self.filename + ' ...')
+        raw_img = io.imread(self.filename)
         self.log.append('raw image imported.')
         # next step's gaussian filter assumes 100x obj and 0.2 um slices
         self.log.append('performing gaussian filtering...')
@@ -319,7 +362,7 @@ class PytoSegmenter:
         ## BINARY THRESHOLDING AND IMAGE CLEANUP
         self.log.append('thresholding...')
         threshold_img = np.copy(gaussian_img)
-        threshold_img[threshold_img < threshold] = 0
+        threshold_img[threshold_img < self.threshold] = 0
         threshold_img[threshold_img > 0] = 1
         self.log.append('thresholding complete.')
         self.log.append('filling holes...')
@@ -345,24 +388,40 @@ class PytoSegmenter:
         maxima = np.logical_xor(maxima, eroded_background_3d)
         self.log.append('maxima identified.')
         ## WATERSHED SEGMENTATION
-        labs = watershed_labels(maxima)
+        labs = self.watershed_labels(maxima)
         self.log.append('watershedding...')
         cells = watershed(-smooth_dist,labs,mask = filled_img)
         self.log.append('raw watershedding complete.')
         self.log.append('filling 2d holes in cells...')
-        filled_cells = fill_cells_2d(cells)
+        filled_cells = self.fill_cells_2d(cells)
         self.log.append('2d hole-filling complete.')
         self.log.append('cleaning up cells...')
-        clean_cells = reassign_pixels_3d(filled_cells)
+        clean_cells = self.reassign_pixels_3d(filled_cells)
         self.log.append('cell cleanup complete.')
         self.log.append('SEGMENTATION OPERATION COMPLETE.')
         endtime = time.time()
         runningtime = endtime - starttime
         self.log.append('time elapsed: ' + str(runningtime) + ' seconds')
-        return PytoSegmentObj(f_directory, filename, raw_img, gaussian_img, threshold,
-                 threshold_img, filled_img, dist_map, smooth_dist_map,
-                 maxima, labs, watershed_output, filled_cells, final_cells,
-                 segmentation_log)
+        return PytoSegmentObj(f_directory, self.filename, raw_img,
+                              gaussian_img, self.threshold,
+                              threshold_img, filled_img, dist_map,
+                              smooth_dist, maxima, labs, cells, filled_cells, 
+                              clean_cells, self.log)
+
+
+    def watershed_labels(self, maxima_img):
+        '''Takes a boolean array with maxima labeled as true pixels
+        and returns an array with maxima numbered sequentially.'''
+        
+        max_z, max_y, max_x = np.nonzero(maxima_img)
+        
+        label_output = np.zeros(maxima_img.shape)
+        
+        for i in range(0,len(max_y)):
+            label_output[max_z[i],max_y[i],max_x[i]] = i+1
+        
+        return(label_output)
+
 
 
     def fill_cells_2d(self, cell_img):
@@ -390,12 +449,13 @@ class PytoSegmenter:
 
     def reassign_pixels_3d(self, filled_cells):
         '''Uses reassign_pixels_2d on each slice of a watershed-
-        segmented image to clean up cells.'''
-        
+        segmented image to clean up cells.
+        '''
+
         reassigned_cells = np.ndarray(shape = filled_cells.shape)
         for i in range(0,filled_cells.shape[0]):
             self.log.append('    beginning slice ' + str(i) + '...')
-            reassigned_cells[i,:,:] = reassign_pixels_2d(filled_cells[i,:,:])
+            reassigned_cells[i,:,:] = self.reassign_pixels_2d(filled_cells[i,:,:])
             self.log.append('    slice ' + str(i) + ' complete.')
         return reassigned_cells
 
@@ -479,3 +539,31 @@ class BatchPytoSegmenter:
         files: a dictionary.
         '''
     pass
+
+
+if __name__ == '__main__':
+    ''' Run segmentation on all images in the working directory.
+
+    sys.argv contents:
+        threshold: a number that will be used as the threshold to binarize
+        the cytosolic fluorescence image.
+    '''
+   
+    self.log.append('beginning __main__ routine')
+    threshold = int(sys.argv[1])
+    wd_contents = os.listdir(os.getcwd())
+    imlist = []
+    for f in wd_contents:
+        if (f.endswith('.tif') or f.endswith('.tiff') 
+            or f.endswith('.TIF') or f.endswith('.TIFF')):
+            imlist.append(f)
+    self.log.append('final imlist:')
+    self.log.append(imlist)
+    for i in imlist:
+        self.log.append('initializing segmenter object...')
+        i_parser = PytoSegmenter(i,threshold)
+        self.log.append('initializing segmentation...')
+        i_obj = i_parser.segment()
+        i_obj.output_all()
+
+
