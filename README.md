@@ -9,3 +9,8 @@ This in-development module is intended for segmenting Saccharomyces cerevisiae c
 
 developer: Nicholas Weir, graduate student, Denic Laboratory, Harvard University
 emai l: nweir a.t fas do t harvard (dot) edu
+
+_Please cite this work if you use it!_ 
+
+[![DOI](https://zenodo.org/badge/16661/nrweir/pyto_segmenter.svg)](https://zenodo.org/badge/latestdoi/16661/nrweir/pyto_segmenter)
+
