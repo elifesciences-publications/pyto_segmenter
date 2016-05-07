@@ -16,7 +16,6 @@ from scipy.ndimage.morphology import distance_transform_edt
 
 
 class PytoSegmentObj:
-    # TODO: ADD NEW ATTRIBUTES
     ''' segmentation data from a cytosolic fluorescence image.   
     Attributes:
         filename (str): the filename for the original raw fluroescence
@@ -338,6 +337,26 @@ class PytoSegmentObj:
             f.write('binary threshold: ' + str(self.threshold) + '\n')
             f.close()
 
+    ## RESTRUCTURING METHODS ##
+    def slim(self):
+        '''remove all of the processing intermediates from the object, leaving
+        only the core information required for later analysis. primarily
+        intended for use when doing batch analysis of multiple images, and
+        combining PytoSegmentObj instances with instances of other types of
+        objects segmented in a different fluorescence channel.
+        '''
+        del self.raw_img
+        del self.gaussian_img
+        del self.threshold_img
+        del self.filled_img
+        del self.dist_map
+        del self.smooth_dist_map
+        del self.maxima
+        del self.labs
+        del self.watershed_output
+        del self.filled_cells
+
+        return self
 
 class PytoSegmenter:
     
@@ -532,15 +551,6 @@ class PytoSegmenter:
         return new_img
 
 
-class BatchPytoSegmenter:
-    '''Batch segment all files in a directory.
-    Attributes:
-        directory: path to the files to be segmented.
-        files: a dictionary.
-        '''
-    pass
-
-
 if __name__ == '__main__':
     ''' Run segmentation on all images in the working directory.
 
@@ -548,8 +558,7 @@ if __name__ == '__main__':
         threshold: a number that will be used as the threshold to binarize
         the cytosolic fluorescence image.
     '''
-   
-    self.log.append('beginning __main__ routine')
+
     threshold = int(sys.argv[1])
     wd_contents = os.listdir(os.getcwd())
     imlist = []
