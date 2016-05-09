@@ -5,7 +5,6 @@ import os
 import sys
 import pickle
 import time
-import matplotlib.pyplot as plt
 import numpy as np
 from skimage import io
 from skimage.morphology import watershed
@@ -13,6 +12,10 @@ from scipy.ndimage.filters import gaussian_filter, maximum_filter
 from scipy.ndimage.morphology import generate_binary_structure, binary_erosion 
 from scipy.ndimage.morphology import binary_dilation, binary_fill_holes
 from scipy.ndimage.morphology import distance_transform_edt
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 
 
 class PytoSegmentObj:
@@ -59,7 +62,7 @@ class PytoSegmentObj:
         '''initialize the PytoSegmentObject with segmentation data.'''
         self.log.append('creating PytoSegmentObject...')
         self.f_directory = f_directory
-        self.filename = filename
+        self.filename = os.path.basename(filename)
         self.raw_img = raw_img.astype('uint16')
         self.gaussian_img = gaussian_img.astype('uint16')
         self.threshold = threshold
