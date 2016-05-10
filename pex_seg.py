@@ -207,7 +207,6 @@ class PexSegmentObj:
                 axarr[i].yaxis.set_visible(False)
             f.set_figwidth(16)
             f.set_figheight(4)        
-            f.show() # TODO: IMPLEMENT OPTIONAL SAVING OF THE PLOT
 
         else:
             f, axarr = plt.subplots(int(np.ceil(nimgs/4)),4)
@@ -227,7 +226,6 @@ class PexSegmentObj:
 
             f.set_figwidth(16)
             f.set_figheight(4*np.ceil(nimgs/4))
-            f.show() # TODO: IMPLEMENT OPTIONAL SAVING OF THE PLOT
 
     def mk_log_file(self, fname):
         '''Write the log file list to a text file.
@@ -285,7 +283,6 @@ class PexSegmentObj:
                 axarr[i].yaxis.set_visible(False)
             f.set_figwidth(16)
             f.set_figheight(4)
-            f.show() # TODO: IMPLEMENT OPTIONAL SAVING OF THE PLOT
 
         else:
             f, axarr = plt.subplots(int(np.ceil(nimgs/4)),4)
@@ -306,7 +303,6 @@ class PexSegmentObj:
 
             f.set_figwidth(16)
             f.set_figheight(4*np.ceil(nimgs/4))
-            f.show() # TODO: IMPLEMENT OPTIONAL SAVING OF THE PLOT
 
 class PexSegmenter:
     
@@ -348,7 +344,27 @@ class PexSegmenter:
            threshold_img[threshold_img > 0] = 1
            self.log.append('thresholding complete.')
         if self.mode == 'bg_scaled':
-            pass # TODO: IMPLEMENT THIS METHOD.
+            self.log.append('mode = background-scaled.')
+            self.thresholds = {}
+            threshold_img = np.zeros(shape = raw_img.shape)
+            for i in unique(self.cells):
+                if i == 0:
+                    pass
+                else:
+                    self.log.append('thresholding cell ' + str(i))
+                    cell_median = np.median(raw_img[cells == i])
+                    threshold_img[cells == i & 
+                                  raw_img > cell_median + self.bg_diff] = 1
+                # TODO: remember that after watershedding i'll have to find
+                # peroxisomes that contact the edge of the segmented cell, and
+                # if they do, grow them to fill the 6-connected 3d region of
+                # pixels above the threshold value. this requires me to store
+                # the cell that each peroxisome belongs to, as well as the
+                # threshold value applied for each cell. i can implement the
+                # cell assignment later when i get to watershedding, but i need
+                # to store the cutoffs now.
+                    self.thresholds[i] = cell_median + self.bg_diff #store val
+            self.log.append('thresholding complete.')
         # distance and maxima transformation to find objects
         # next two steps assume 100x objective and 0.2 um slices
         self.log.append('generating distance map...')
@@ -372,6 +388,28 @@ class PexSegmenter:
         self.log.append('watershedding...')
         peroxisomes = watershed(-smooth_dist, labs, mask = threshold_img)
         self.log.append('watershedding complete.')
+        if self.mode == 'bg_scaled':
+            edge_struct = generate_binary_structure(3,1)
+            self.c_edges = {}
+            self.cellnums = [x for x in np.unique(self.cells) if x != 0]
+            for i in self.cellnums:
+                self.c_edges[i] = np.logical_xor(self.cells == i,
+                                                      binary_erosion(self.cells
+                                                                     == i,
+                                                                     edge_struct))
+            self.primary_objs = [x for x in np.unique(peroxisomes) if x != 0]
+            self.assigned_cells = {}
+            for obj in primary_objs:
+                self.assigned_cells[obj] = (self.cells[labs == obj])
+                obj_mask = peroxisomes == obj
+                obj_edge = np.logical_xor(obj_mask, 
+                                          binary_erosion(obj_mask,
+                                                         edge_struct))
+                # test if the object's edge and its cell's edge overlap
+                if np.any(np.logical_and(obj_edge,
+                                         self.c_edges[self.assigned_cells[obj]])):
+                    pass
+                    #TODO: IMPLEMENT GROWING PEROXISOMES OUTSIDE OF CELL!
         self.log.append('filtering out too-large and too-small objects...')
         obj_nums, volumes = np.unique(peroxisomes, return_counts = True)
         
@@ -393,7 +431,7 @@ class PexSegmenter:
                                  gaussian_img, self.mode, 
                                  threshold_img, dist_map, smooth_dist, maxima,
                                  labs, peroxisomes, self.log, volumes, 
-                                 mode_params = self.bg_diff)
+                                 mode_params = [self.bg_diff,self.cells])
 
     ## HELPER METHODS ##
     def watershed_labels(self, maxima_img):
