@@ -392,13 +392,16 @@ class PexSegmenter:
             edge_struct = generate_binary_structure(3,1)
             self.c_edges = {}
             self.cellnums = [x for x in np.unique(self.cells) if x != 0]
+            self.log.append('finding edges of cells...')
             for i in self.cellnums:
                 self.c_edges[i] = np.logical_xor(self.cells == i,
                                                       binary_erosion(self.cells
                                                                      == i,
                                                                      edge_struct))
+            self.log.append('cell edges found.')
             self.primary_objs = [x for x in np.unique(peroxisomes) if x != 0]
             self.assigned_cells = {}
+            self.on_edge = {}
             for obj in primary_objs:
                 self.assigned_cells[obj] = (self.cells[labs == obj])
                 obj_mask = peroxisomes == obj
@@ -408,9 +411,26 @@ class PexSegmenter:
                 # test if the object's edge and its cell's edge overlap
                 if np.any(np.logical_and(obj_edge,
                                          self.c_edges[self.assigned_cells[obj]])):
-                    pass
-                    #TODO: IMPLEMENT GROWING PEROXISOMES OUTSIDE OF CELL!
+                    self.on_edge[obj] = True
+                    new_obj = obj_mask
+                    search_obj = obj_mask
+                    tester = 0
+                    while tester == 0:
+                        grown_obj = binary_dilation(search_obj, edge_struct)
+                        new_px = np.logical_xor(grown_obj, new_obj)
+                        if np.any(gaussian_img[new_px] > self.thresholds[obj]):
+                            to_add = np.logical_and(new_px, gaussian_img >
+                                                    self.thresholds[obj])
+                            new_obj = np.logical_or(new_obj, to_add)
+                            search_obj = to_add # only search from new pixels
+                        else:
+                            peroxisomes[new_obj] = obj
+                            tester = 1
+                else:
+                    self.on_edge[obj] = False
+                    #TODO: FINISH IMPLEMENT GROWING PEROXISOMES OUTSIDE OF CELL!
         self.log.append('filtering out too-large and too-small objects...')
+
         obj_nums, volumes = np.unique(peroxisomes, return_counts = True)
         
         # the following code, in one line, eliminates all objects that are
