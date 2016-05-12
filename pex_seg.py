@@ -318,7 +318,7 @@ class PexSegmenter:
             self.cells = kwargs.get('cells', '')
             self.bg_diff = kwargs.get('bg_diff',float('nan'))
             if self.cells == '':
-                raise ValueError('A PytoSegmentObj containing segmented cells is required if mode == bg_scaled.')
+                raise ValueError('A CellSegmentObj containing segmented cells is required if mode == bg_scaled.')
             if np.isnan(self.bg_diff):
                 raise ValueError('a bg_diff argument is needed if mode == bg_scaled.')
     

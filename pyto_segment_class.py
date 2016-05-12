@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 
 
 
-class PytoSegmentObj:
+class CellSegmentObj:
     ''' segmentation data from a cytosolic fluorescence image.   
     Attributes:
         filename (str): the filename for the original raw fluroescence
@@ -51,7 +51,7 @@ class PytoSegmentObj:
             filled if they are completely surrounded by the same cell;
             done to eliminate "tunnels" that can arise from vacuoles).
         final_cells (ndarray): the product of cleaning up the filled_cells
-            segmented image using a voting filter. see the PytoSegmenter
+            segmented image using a voting filter. see the CellSegmenter
             reassign_pix_obs method for details. 
     '''
 
@@ -59,8 +59,8 @@ class PytoSegmentObj:
                  threshold_img, filled_img, dist_map, smooth_dist_map,
                  maxima, labs, watershed_output, filled_cells, final_cells,
                  segmentation_log):
-        '''initialize the PytoSegmentObject with segmentation data.'''
-        self.log.append('creating PytoSegmentObject...')
+        '''initialize the CellSegmentObject with segmentation data.'''
+        self.log.append('creating CellSegmentObject...')
         self.f_directory = f_directory
         self.filename = os.path.basename(filename)
         self.raw_img = raw_img.astype('uint16')
@@ -81,7 +81,7 @@ class PytoSegmentObj:
         self.log = segmentation_log
 
     def __repr__(self):
-        return 'PytoSegmentObj '+ self.filename
+        return 'CellSegmentObj '+ self.filename
 
     ## PLOTTING METHODS ##    
     def plot_raw_img(self,display = False):
@@ -133,7 +133,7 @@ class PytoSegmentObj:
     def output_images(self):
         '''Write all images to a new subdirectory.
         
-        Write all images associated with the PytoSegmentObj to a new
+        Write all images associated with the CellSegmentObj to a new
         directory. Name that directory according to the filename of the initial
         image that the object was derived from. This new directory should be a
         subdirectory to the directory containing the original raw image.
@@ -160,7 +160,7 @@ class PytoSegmentObj:
     def output_plots(self):
         '''Write PDFs of slice-by-slice plots.
         
-        Output: PDF plots of each image within PytoSegmentObj in a directory
+        Output: PDF plots of each image within CellSegmentObj in a directory
         named for the original filename they were generated from. Plots are
         generated using the plot_stack method and plotting methods defined
         here.
@@ -204,7 +204,7 @@ class PytoSegmentObj:
         plt.savefig('pfinal_cells_' +
                     self.filename[0:self.filename.index('.')]+'.pdf')
     def pickle(self):
-        '''pickle the PytoSegmentObj for later loading.'''
+        '''pickle the CellSegmentObj for later loading.'''
         if not os.path.isdir(self.f_directory + '/' +
                              self.filename[0:self.filename.index('.')]):
             self.log.append('creating output directory...')
@@ -345,7 +345,7 @@ class PytoSegmentObj:
         '''remove all of the processing intermediates from the object, leaving
         only the core information required for later analysis. primarily
         intended for use when doing batch analysis of multiple images, and
-        combining PytoSegmentObj instances with instances of other types of
+        combining CellSegmentObj instances with instances of other types of
         objects segmented in a different fluorescence channel.
         '''
         del self.raw_img
@@ -361,7 +361,7 @@ class PytoSegmentObj:
 
         return self
 
-class PytoSegmenter:
+class CellSegmenter:
     
     def __init__(self, filename, threshold):
         self.log = []
@@ -424,7 +424,7 @@ class PytoSegmenter:
         endtime = time.time()
         runningtime = endtime - starttime
         self.log.append('time elapsed: ' + str(runningtime) + ' seconds')
-        return PytoSegmentObj(f_directory, self.filename, raw_img,
+        return CellSegmentObj(f_directory, self.filename, raw_img,
                               gaussian_img, self.threshold,
                               threshold_img, filled_img, dist_map,
                               smooth_dist, maxima, labs, cells, filled_cells, 
@@ -573,7 +573,7 @@ if __name__ == '__main__':
     self.log.append(imlist)
     for i in imlist:
         self.log.append('initializing segmenter object...')
-        i_parser = PytoSegmenter(i,threshold)
+        i_parser = CellSegmenter(i,threshold)
         self.log.append('initializing segmentation...')
         i_obj = i_parser.segment()
         i_obj.output_all()
