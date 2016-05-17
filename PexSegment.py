@@ -23,7 +23,8 @@ class PexSegmentObj:
     def __init__(self, f_directory, filename, raw_img, gaussian_img, mode,
                  threshold_img, dist_map,
                  smooth_dist_map, maxima, labs, watershed_output, 
-                 segmentation_log, obj_nums, volumes, mode_params = {}):
+                 segmentation_log, obj_nums, volumes, to_pdout = [], 
+                 mode_params = {}):
         '''Initialize the PexSegmentObj with segmentation data.'''
         self.log = segmentation_log
         self.log.append('creating PexSegmentObj...')
@@ -46,11 +47,15 @@ class PexSegmentObj:
         self.npexs = len(self.obj_nums)-1
         self.volumes = volumes
         self.volumes_flag = 'pixels'
+        self.pdout = []
         for key in mode_params:
             if hasattr(self, key):
                 raise AttributeError('Two copies of the attribute ' + key +
                                      'were provided to PexSegmentObj.__init__()')
             setattr(self, key, mode_params[key])
+        if to_pdout != []:
+            for x in to_pdout:
+                self.pdout.append(x)
 
 
     def __repr__(self):
@@ -175,6 +180,7 @@ class PexSegmentObj:
         self.output_images()
         self.mk_log_file('log_'+self.filename[0:self.filename.index('.')]+'.txt')
         self.pickle()
+        # TODO: UPDATE THIS METHOD TO INCLUDE PANDAS OUTPUT
     def output_slim(self):
         '''output the slimmed object.'''
         # TODO: IMPLEMENT THIS METHOD (WILL REQUIRE CREATING OUTPUT_SLIM_PLOTS
@@ -185,6 +191,20 @@ class PexSegmentObj:
 
     ## HELPER METHODS ##
 
+    def to_pandas(self):
+        '''create a pandas DataFrame of tabulated numeric data.
+        
+        the pdout attribute indicates which variables to include in the
+        DataFrame.
+        '''
+        df_dict = {}
+        for attr in self.pdout:
+            df_dict[str(attr)] = pd.Series(getattr(self, attr))
+        if 'volumes' in self.pdout:
+            vflag_out = dict(zip(self.obj_nums,
+                                 self.volumes_flag*len(self.obj_nums)))
+            df_dict['volumes_flag'] = pd.Series(vflag_out)
+        return pd.DataFrame(df_dict)
     def convert_volumes(self, z = 0.2, x = 0.0675):
         '''convert volumes from units of pixels to metric units.
 
@@ -200,7 +220,6 @@ class PexSegmentObj:
         for key, val in self.volumes:
             self.volumes[key] = float(self.volumes[key])*conv_factor
         self.volumes_flag = 'femtoliters' 
-
     def plot_stack(self, stack_arr, colormap='jet'):
         ''' Create a matplotlib plot with each subplot containing a slice.
         
@@ -248,7 +267,6 @@ class PexSegmentObj:
 
             f.set_figwidth(16)
             f.set_figheight(4*np.ceil(nimgs/4))
-
     def mk_log_file(self, fname):
         '''Write the log file list to a text file.
         kwargs:
@@ -269,7 +287,6 @@ class PexSegmentObj:
                     str(self.volumes) + '\n')
             f.write('volume units: ' + str(self.volumes_flag) + '\n')
             f.close()
-    
     def slim(self):
         '''remove all of the processing intermediates from the object, leaving
         only the core information required for later analysis. primarily
@@ -285,7 +302,6 @@ class PexSegmentObj:
         del self.maxima
 
         return self
-
     def plot_maxima_stack(self, masked_max, smooth_dist):
 
         ''' Creates a matplotlib plot object in which each slice from the image
@@ -328,6 +344,7 @@ class PexSegmentObj:
             f.set_figwidth(16)
             f.set_figheight(4*np.ceil(nimgs/4))
 
+
 class PexSegmenter:
     
     def __init__(self,filename, mode = 'threshold', **kwargs):
@@ -350,6 +367,7 @@ class PexSegmenter:
         '''Segment peroxisomes within the image.'''
         starttime = time.time() # begin timing
         f_directory = os.getcwd()
+        pdout = []
         # data import
         self.log.append('reading' + self.filename)
         raw_img = io.imread(self.filename)
@@ -460,6 +478,7 @@ class PexSegmenter:
         mode_params = {}
         if self.mode == 'threshold':
             mode_params[threshold] = self.threshold
+            pdout.append('volumes')
         elif self.mode == 'bg_scaled':
             mode_params['thresholds'] = self.thresholds
             mode_params['bg_diff'] = self.bg_diff
@@ -469,18 +488,21 @@ class PexSegmenter:
             mode_params['obj_edges'] = self.obj_edges
             mode_params['on_edge'] = self.on_edge
             mode_params['parent'] = self.parent
+            for x in ['thresholds','on_edge','parent', 'volumes']:
+                pdout.append(x)
         if self.mode == 'threshold':
             return PexSegmentObj(f_directory, self.filename, raw_img,
                                  gaussian_img, self.mode, 
                                  threshold_img, dist_map, smooth_dist, maxima,
                                  labs, peroxisomes, self.log, obj_nums,
-                                 volumes, mode_params = mode_params)
+                                 volumes, to_pdout = pdout,
+                                 mode_params = mode_params)
         elif self.mode == 'bg_scaled':
             return PexSegmentObj(f_directory, self.filename, raw_img,
                                  gaussian_img, self.mode, 
                                  threshold_img, dist_map, smooth_dist, maxima,
                                  labs, peroxisomes, self.log, obj_nums, volumes,
-                                 mode_params = mode_params)
+                                 to_pdout = pdout, mode_params = mode_params)
 
     ## HELPER METHODS ##
     def watershed_labels(self, maxima_img):

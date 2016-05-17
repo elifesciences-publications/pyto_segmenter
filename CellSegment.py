@@ -8,6 +8,7 @@ import os
 import sys
 import pickle
 import time
+import pandas as pd
 import numpy as np
 from skimage import io
 from skimage.morphology import watershed
@@ -83,6 +84,7 @@ class CellSegmentObj:
         self.obj_nums = obj_nums
         self.volumes = volumes
         self.volumes_flag = 'pixels'
+        self.pdout = ['volumes']
 
     def __repr__(self):
         return 'CellSegmentObj '+ self.filename
@@ -133,6 +135,22 @@ class CellSegmentObj:
             plt.show()
 
     ## OUTPUT METHODS ##
+    
+    def to_csv(self):
+        '''output numeric data into a csv using pandas.'''
+        os.chdir(self.f_directory)
+        if not os.path.isdir(self.f_directory + '/' +
+                             self.filename[0:self.filename.index('.')]):
+            self.log.append('creating output directory...')
+            os.mkdir(self.f_directory + '/' +
+                     self.filename[0:self.filename.index('.')])
+        os.chdir(self.f_directory + '/' +
+                 self.filename[0:self.filename.index('.')])
+
+        for_csv = self.to_pandas()
+        for_csv.to_csv(path = os.getcwd() +
+                       '/pd_'+self.filename[0:self.filename.index('.')],
+                       index = True, header = True)
 
     def output_images(self):
         '''Write all images to a new subdirectory.
@@ -143,9 +161,9 @@ class CellSegmentObj:
         subdirectory to the directory containing the original raw image.
         '''
         os.chdir(self.f_directory)
-        self.log.append('creating output directory...')
         if not os.path.isdir(self.f_directory + '/' +
                              self.filename[0:self.filename.index('.')]):
+            self.log.append('creating output directory...')
             os.mkdir(self.f_directory + '/' +
                      self.filename[0:self.filename.index('.')])
         os.chdir(self.f_directory + '/' +
@@ -216,7 +234,7 @@ class CellSegmentObj:
                      self.filename[0:self.filename.index('.')])
         os.chdir(self.f_directory + '/' + 
                  self.filename[0:self.filename.index('.')])
-        with open('pickled_' +
+        with open('pickled_CellSegmentObj_' +
                   self.filename[0:self.filename.index('.')] + 
                   '.pickle', 'wb') as f:
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
@@ -234,9 +252,19 @@ class CellSegmentObj:
         self.output_images()
         self.mk_log_file('log_'+self.filename[0:self.filename.index('.')]+'.txt')
         self.pickle()
-
+            
     ## HELPER METHODS ##
 
+    def to_pandas(self):
+        '''create a pandas DataFrame of tabulated numeric data.
+        
+        the pdout attribute indicates which variables to include in the
+        DataFrame.
+        '''
+        df_dict = {}
+        for attr in self.pdout:
+            df_dict[str(attr)] = pd.Series(getattr(self, attr))
+        return pd.DataFrame(df_dict)
     def convert_volumes(self, z = 0.2, x = 0.0675):
         '''convert volumes from units of pixels to metric units.
 
