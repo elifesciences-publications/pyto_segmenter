@@ -62,12 +62,13 @@ class CellSegmentObj:
                  maxima, labs, watershed_output, filled_cells, final_cells,
                  obj_nums, volumes, segmentation_log):
         '''initialize the CellSegmentObject with segmentation data.'''
+        self.log = segmentation_log
         self.log.append('creating CellSegmentObject...')
         self.f_directory = f_directory
         self.filename = os.path.basename(filename)
         self.raw_img = raw_img.astype('uint16')
         self.gaussian_img = gaussian_img.astype('uint16')
-        self.threshold = threshold
+        self.threshold = int(threshold)
         self.threshold_img = threshold_img.astype('uint16')
         self.filled_img = filled_img.astype('uint16')
         self.dist_map = dist_map.astype('uint16')
@@ -77,10 +78,9 @@ class CellSegmentObj:
         self.watershed_output = watershed_output.astype('uint16')
         self.filled_cells = filled_cells.astype('uint16')
         self.final_cells = final_cells.astype('uint16')
-        self.slices = self.raw_img.shape[0]
-        self.height = self.raw_img.shape[1]
-        self.width = self.raw_img.shape[2]
-        self.log = segmentation_log
+        self.slices = int(self.raw_img.shape[0])
+        self.height = int(self.raw_img.shape[1])
+        self.width = int(self.raw_img.shape[2])
         self.obj_nums = obj_nums
         self.volumes = volumes
         self.volumes_flag = 'pixels'
@@ -136,23 +136,29 @@ class CellSegmentObj:
 
     ## OUTPUT METHODS ##
     
-    def to_csv(self):
-        '''output numeric data into a csv using pandas.'''
+    def to_csv(self, output_dir = None):
         os.chdir(self.f_directory)
-        if not os.path.isdir(self.f_directory + '/' +
-                             self.filename[0:self.filename.index('.')]):
+        if output_dir == None:
+            output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.')]
+        if not os.path.isdir(output_dir):
             self.log.append('creating output directory...')
-            os.mkdir(self.f_directory + '/' +
-                     self.filename[0:self.filename.index('.')])
-        os.chdir(self.f_directory + '/' +
-                 self.filename[0:self.filename.index('.')])
-
+            os.mkdir(output_dir)
+        os.chdir(output_dir)
         for_csv = self.to_pandas()
-        for_csv.to_csv(path = os.getcwd() +
-                       '/pd_'+self.filename[0:self.filename.index('.')],
+        for_csv.to_csv(path = output_dir + self.filename[0:self.filename.index('.')],
                        index = True, header = True)
+    def output_image(self, imageattr, output_dir = None):
+        os.chdir(self.f_directory)
+        if output_dir == None:
+            output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.')]
+        if not os.path.isdir(output_dir):
+            self.log.append('creating output directory...')
+            os.mkdir(output_dir)
+        os.chdir(output_dir)
+        self.log.append('writing image' + str(imageattr))
+        io.imsave(str(imageattr)+self.filename, getattr(self,str(imageattr)))
 
-    def output_images(self):
+    def output_all_images(self, output_dir = None):
         '''Write all images to a new subdirectory.
         
         Write all images associated with the CellSegmentObj to a new
@@ -161,13 +167,12 @@ class CellSegmentObj:
         subdirectory to the directory containing the original raw image.
         '''
         os.chdir(self.f_directory)
-        if not os.path.isdir(self.f_directory + '/' +
-                             self.filename[0:self.filename.index('.')]):
+        if output_dir == None:
+            output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.')]
+        if not os.path.isdir(output_dir):
             self.log.append('creating output directory...')
-            os.mkdir(self.f_directory + '/' +
-                     self.filename[0:self.filename.index('.')])
-        os.chdir(self.f_directory + '/' +
-                 self.filename[0:self.filename.index('.')])
+            os.mkdir(output_dir)
+        os.chdir(output_dir)
         self.log.append('writing images...')
         io.imsave('raw_'+self.filename, self.raw_img)
         io.imsave('gaussian_'+self.filename, self.gaussian_img)
@@ -225,17 +230,16 @@ class CellSegmentObj:
         self.plot_final_cells()
         plt.savefig('pfinal_cells_' +
                     self.filename[0:self.filename.index('.')]+'.pdf')
-    def pickle(self):
+    def pickle(self, output_dir = None):
         '''pickle the CellSegmentObj for later loading.'''
-        if not os.path.isdir(self.f_directory + '/' +
-                             self.filename[0:self.filename.index('.')]):
+        if output_dir == None:
+            output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.')]
+        if not os.path.isdir(output_dir):
             self.log.append('creating output directory...')
-            os.mkdir(self.f_directory + '/' + 
-                     self.filename[0:self.filename.index('.')])
-        os.chdir(self.f_directory + '/' + 
-                 self.filename[0:self.filename.index('.')])
-        with open('pickled_CellSegmentObj_' +
-                  self.filename[0:self.filename.index('.')] + 
+            os.mkdir(output_dir)
+        os.chdir(output_dir)
+        with open('pickled_' +
+                    self.filename[0:self.filename.index('.')] + 
                   '.pickle', 'wb') as f:
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
         f.close()
@@ -249,10 +253,10 @@ class CellSegmentObj:
                  self.filename[0:self.filename.index('.')])
         self.log.append('outputting all data...')
         self.output_plots()
-        self.output_images()
+        self.output_all_images()
         self.mk_log_file('log_'+self.filename[0:self.filename.index('.')]+'.txt')
         self.pickle()
-            
+         # TODO: UPDATE THIS METHOD TO INCLUDE PANDAS OUTPUT           
     ## HELPER METHODS ##
 
     def to_pandas(self):
@@ -264,6 +268,10 @@ class CellSegmentObj:
         df_dict = {}
         for attr in self.pdout:
             df_dict[str(attr)] = pd.Series(getattr(self, attr))
+        if 'volumes' in self.pdout:
+            vflag_out = dict(zip(self.obj_nums,
+                                 self.volumes_flag*len(self.obj_nums)))
+            df_dict['volumes_flag'] = pd.Series(vflag_out)
         return pd.DataFrame(df_dict)
     def convert_volumes(self, z = 0.2, x = 0.0675):
         '''convert volumes from units of pixels to metric units.
@@ -475,14 +483,16 @@ class CellSegmenter:
         runningtime = endtime - starttime
         self.log.append('time elapsed: ' + str(runningtime) + ' seconds')
         cell_nums, volumes = np.unique(clean_cells, return_counts = True)
+        cell_nums.astype('uint16')
+        volumes.astype('uint16')
         volumes = dict(zip(cell_nums, volumes))
         del volumes[0]
-        obj_nums.remove(0)
+        cell_nums = cell_nums[np.nonzero(cell_nums)]
         return CellSegmentObj(f_directory, self.filename, raw_img,
                               gaussian_img, self.threshold,
                               threshold_img, filled_img, dist_map,
                               smooth_dist, maxima, labs, cells, filled_cells, 
-                              clean_cells, obj_nums, volumes, self.log)
+                              clean_cells, cell_nums, volumes, self.log)
 
 
     def watershed_labels(self, maxima_img):
@@ -633,3 +643,6 @@ if __name__ == '__main__':
         i_obj.output_all()
 
 
+# TODO LIST:
+    # ADD LOG ATTRIBUTE APPEND COMMANDS IN METHODS WHERE IT'S NOT IMPLEMENTED
+    # STOP THE PLOTS FROM BEING SHOWN WHEN THEY SHOULDN'T

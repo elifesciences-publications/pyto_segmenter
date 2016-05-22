@@ -1,6 +1,5 @@
 '''Classes and methods for segmentation of spherical objects within cells.'''
 
-#### WARNING: THIS SCRIPT IS CURRENTLY INCOMPLETE!!! ####
 
 ## IMPORT DEPENDENCIES
 import matplotlib
@@ -38,7 +37,7 @@ class PexSegmentObj:
         self.smooth_dist_map = smooth_dist_map.astype('uint16')
         self.maxima = maxima.astype('uint16')
         self.labs = labs.astype('uint16')
-        self.watershed_output = watershed_output.astype('uint16')
+        self.peroxisomes = watershed_output.astype('uint16')
         self.slices = self.raw_img.shape[0]
         self.height = self.raw_img.shape[1]
         self.width = self.raw_img.shape[2]
@@ -89,11 +88,11 @@ class PexSegmentObj:
         if display == True:
             plt.show()
     def plot_watershed(self, display = False):
-        self.plot_stack(self.watershed_output)
+        self.plot_stack(self.peroxisomes)
         if display == True:
             plt.show()
 
-    def output_images(self):
+    def output_all_images(self, output_dir = None):
         '''Write all images to a new subdirectory.
         
         Write all images associated with the PexSegmentObj to a new
@@ -102,13 +101,12 @@ class PexSegmentObj:
         subdirectory to the directory containing the original raw image.
         '''
         os.chdir(self.f_directory)
-        if not os.path.isdir(self.f_directory + '/' +
-                             self.filename[0:self.filename.index('.')]):
+        if output_dir == None:
+            output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.')]
+        if not os.path.isdir(output_dir):
             self.log.append('creating output directory...')
-            os.mkdir(self.f_directory + '/' +
-                     self.filename[0:self.filename.index('.')])
-        os.chdir(self.f_directory + '/' +
-                 self.filename[0:self.filename.index('.')])
+            os.mkdir(output_dir)
+        os.chdir(output_dir)
         self.log.append('writing images...')
         io.imsave('raw_'+self.filename, self.raw_img)
         io.imsave('gaussian_'+self.filename, self.gaussian_img)
@@ -116,7 +114,18 @@ class PexSegmentObj:
         io.imsave('dist_'+self.filename, self.dist_map)
         io.imsave('smooth_dist_'+self.filename,self.smooth_dist_map)
         io.imsave('maxima_'+self.filename,self.maxima)
-        io.imsave('wshed_'+self.filename,self.watershed_output)
+        io.imsave('wshed_'+self.filename,self.peroxisomes)
+    def output_image(self, imageattr, output_dir = None):
+        os.chdir(self.f_directory)
+        if output_dir == None:
+            output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.')]
+        if not os.path.isdir(output_dir):
+            self.log.append('creating output directory...')
+            os.mkdir(output_dir)
+        os.chdir(output_dir)
+        self.log.append('writing image' + str(imageattr))
+        io.imsave(str(imageattr)+self.filename, getattr(self,str(imageattr)))
+
     def output_plots(self):
         '''Write PDFs of slice-by-slice plots.
         
@@ -153,17 +162,16 @@ class PexSegmentObj:
         self.plot_watershed()
         plt.savefig('pwshed_' +
                     self.filename[0:self.filename.index('.')]+'.pdf')
-    def pickle(self):
-        '''pickle the PexSegmentObj for later loading.'''
-        if not os.path.isdir(self.f_directory + '/' +
-                             self.filename[0:self.filename.index('.')]):
+    def pickle(self, output_dir = None):
+        '''pickle the CellSegmentObj for later loading.'''
+        if output_dir == None:
+            output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.')]
+        if not os.path.isdir(output_dir):
             self.log.append('creating output directory...')
-            os.mkdir(self.f_directory + '/' + 
-                     self.filename[0:self.filename.index('.')])
-        os.chdir(self.f_directory + '/' + 
-                 self.filename[0:self.filename.index('.')])
+            os.mkdir(output_dir)
+        os.chdir(output_dir)
         with open('pickled_' +
-                  self.filename[0:self.filename.index('.')] + 
+                    self.filename[0:self.filename.index('.')] + 
                   '.pickle', 'wb') as f:
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
         f.close()
@@ -177,7 +185,7 @@ class PexSegmentObj:
                  self.filename[0:self.filename.index('.')])
         self.log.append('outputting all data...')
         self.output_plots()
-        self.output_images()
+        self.output_all_images()
         self.mk_log_file('log_'+self.filename[0:self.filename.index('.')]+'.txt')
         self.pickle()
         # TODO: UPDATE THIS METHOD TO INCLUDE PANDAS OUTPUT
@@ -188,7 +196,18 @@ class PexSegmentObj:
         # AND ADJUST THESE METHODS TO CHANGE DEPENDING UPON THE STATE OF THE
         # SLIM ATTRIBUTE)
         pass
-
+    def to_csv(self, output_dir = None):
+        os.chdir(self.f_directory)
+        if output_dir == None:
+            output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.')]
+        if not os.path.isdir(output_dir):
+            self.log.append('creating output directory...')
+            os.mkdir(output_dir)
+        os.chdir(output_dir)
+        for_csv = self.to_pandas()
+        for_csv.to_csv(path = output_dir + self.filename[0:self.filename.index('.')],
+                       index = True, header = True)
+        
     ## HELPER METHODS ##
 
     def to_pandas(self):
@@ -357,7 +376,7 @@ class PexSegmenter:
                 raise ValueError('A threshold argument must be provided to segment with a constant threshold.')
         if mode == 'bg_scaled':
             self.cells = kwargs.get('cells', '')
-            self.bg_diff = kwargs.get('bg_diff',float('nan'))
+            self.bg_diff = float(kwargs.get('bg_diff',float('nan')))
             if self.cells == '':
                 raise ValueError('A CellSegmentObj containing segmented cells is required if mode == bg_scaled.')
             if np.isnan(self.bg_diff):
@@ -389,14 +408,14 @@ class PexSegmenter:
             self.log.append('mode = background-scaled.')
             self.thresholds = {}
             threshold_img = np.zeros(shape = raw_img.shape)
-            for i in unique(self.cells):
+            for i in self.cells.obj_nums:
                 if i == 0:
                     pass
                 else:
                     self.log.append('thresholding cell ' + str(i))
-                    cell_median = np.median(raw_img[self.cells == i])
-                    threshold_img[self.cells == i & 
-                                  raw_img > cell_median + self.bg_diff] = 1
+                    cell_median = np.median(raw_img[self.cells.final_cells == i])
+                    threshold_img[np.logical_and(self.cells.final_cells == i,
+                                  raw_img > cell_median + self.bg_diff)] = 1
                     self.thresholds[i] = cell_median + self.bg_diff #store val
             self.log.append('thresholding complete.')
         # distance and maxima transformation to find objects
@@ -425,20 +444,19 @@ class PexSegmenter:
         if self.mode == 'bg_scaled':
             edge_struct = generate_binary_structure(3,1)
             self.c_edges = {}
-            self.cellnums = [x for x in np.unique(self.cells) if x != 0]
             self.log.append('finding edges of cells...')
-            for i in self.cellnums:
-                self.c_edges[i] = np.logical_xor(self.cells == i,
-                                                      binary_erosion(self.cells
-                                                                     == i,
+            for i in self.cells.obj_nums:
+                self.c_edges[i] = np.logical_xor(self.cells.final_cells == i,
+                                                      binary_erosion(self.cells.final_cells== i,
                                                                      edge_struct))
             self.log.append('cell edges found.')
             self.primary_objs = [x for x in np.unique(peroxisomes) if x != 0]
             self.parent = {}
             self.obj_edges = {}
             self.on_edge = {}
-            for obj in primary_objs:
-                self.parent[obj] = (self.cells[labs == obj])
+            pex_mask = peroxisomes != 0
+            for obj in self.primary_objs:
+                self.parent[obj] = self.cells.final_cells[labs == obj][0]
                 obj_mask = peroxisomes == obj
                 obj_edge = np.logical_xor(obj_mask, 
                                           binary_erosion(obj_mask,
@@ -454,7 +472,9 @@ class PexSegmenter:
                     while tester == 0:
                         grown_obj = binary_dilation(search_obj, edge_struct)
                         new_px = np.logical_xor(grown_obj, new_obj)
-                        if np.any(gaussian_img[new_px] > self.thresholds[obj]):
+                        new_px[np.logical_and(new_px, pex_mask)] = False
+                        if np.any(gaussian_img[new_px] >
+                                  self.thresholds[pex_segmenter.parent[obj]]):
                             to_add = np.logical_and(new_px, gaussian_img >
                                                     self.thresholds[obj])
                             new_obj = np.logical_or(new_obj, to_add)
@@ -466,11 +486,9 @@ class PexSegmenter:
                     self.on_edge[obj] = False
         self.log.append('filtering out too-large and too-small objects...')
         obj_nums, volumes = np.unique(peroxisomes, return_counts = True)
-        # the following code, in one line, eliminates all objects that are
-        # either fewer than 5 or greater than 2500 pixels in volume.
-        peroxisomes[np.in1d(peroxisomes, 
-                            obj_nums[np.bitwise_or(volumes < 5,volumes >
-                                                    2500)].astype('int')).reshape(peroxisomes.shape)]= 0
+        pexs_to_remove = obj_nums[np.logical_or(volumes < 5, volumes > 2500)]
+        for obj in pexs_to_remove:
+            peroxisomes[peroxisomes == obj] = 0
         obj_nums, volumes = np.unique(peroxisomes, return_counts = True)
         volumes = dict(zip(obj_nums, volumes))
         del volumes[0]
@@ -484,7 +502,7 @@ class PexSegmenter:
             mode_params['bg_diff'] = self.bg_diff
             mode_params['cells'] = self.cells
             mode_params['cell_edges'] = self.c_edges
-            mode_params['cell_nums'] = self.cellnums
+            mode_params['cell_nums'] = self.cells.obj_nums
             mode_params['obj_edges'] = self.obj_edges
             mode_params['on_edge'] = self.on_edge
             mode_params['parent'] = self.parent
@@ -517,3 +535,12 @@ class PexSegmenter:
             label_output[max_z[i],max_y[i],max_x[i]] = i+1
         
         return(label_output)
+
+    
+
+
+# TODO LIST:
+    # # PULL THE IMPORTANT PARTS OF THE CELLSEGMENTOBJ OUT AND DISCARD THE REST
+    #   DURING INITIALIZATION OF PEX_SEGMENTER WITH MODE BG_DIFF. IT CURRENTLY 
+    #   PULLS THE WHOLE OBJECT IN, WHICH TAKES A TON OF SPACE.
+    # # UPDATE LOG FILE PRINTING
