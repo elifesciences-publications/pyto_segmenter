@@ -81,7 +81,7 @@ class CellSegmentObj:
         self.slices = int(self.raw_img.shape[0])
         self.height = int(self.raw_img.shape[1])
         self.width = int(self.raw_img.shape[2])
-        self.obj_nums = obj_nums
+        self.obj_nums = obj_nums.tolist()
         self.volumes = volumes
         self.volumes_flag = 'pixels'
         self.pdout = ['volumes']

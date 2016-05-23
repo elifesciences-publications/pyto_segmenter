@@ -43,14 +43,14 @@ class PytoSegmentObj:
                       name the object (e.g. peroxisomes)
         '''
         tmp_objs = getattr(self, obj_type)
-        if not hasattr(tmp_objs, labs):
+        if not hasattr(tmp_objs, 'labs'):
             raise AttributeError('The ' + obj_type +
                                  ' lacks a labs attribute.')
-        parents = {}
+        parent = {}
         labs = tmp_objs.labs
         for obj in tmp_objs.obj_nums:
-            parents[obj] = self.cells.final_cells[labs == obj]
-        tmp_objs.parents = parents
+            parent[obj] = self.cells.final_cells[labs == obj]
+        tmp_objs.parent = parent
         setattr(self, obj_type, tmp_objs)
     def count_children(self, obj_type):
         '''Count child objects of a given type in each cell.
@@ -63,10 +63,10 @@ class PytoSegmentObj:
         '_children' which is a dict of cell number:number of child objs pairs.
         '''
         tmp_objs = getattr(self, obj_type)
-        if not hasattr(tmp_objs, parents):
+        if not hasattr(tmp_objs, 'parent'):
             self.match_parents(obj_type)
         cts = {}
-        tmp_parents = [int(val) for val in tmp_objs.parents.values()]
+        tmp_parents = [int(val) for val in tmp_objs.parent.values()]
         for cell in self.cells.obj_nums:
             cts[cell] = tmp_parents.count(int(cell))
         setattr(self.cells, str(obj_type) + '_children', cts)

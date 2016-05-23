@@ -12,15 +12,18 @@ import numpy as np
 from skimage import io
 from skimage.morphology import watershed
 from scipy.ndimage.filters import gaussian_filter, maximum_filter
-from scipy.ndimage.morphology import generate_binary_structure, binary_erosion
-from scipy.ndimage.morphology import distance_transform_edt, binary_dilation
+from scipy.ndimage.morphology import generate_binary_structure, binary_closing
+from scipy.ndimage.morphology import distance_transform_edt
+from scipy.ndimage.morphology import binary_erosion, binary_dilation
+from scipy.ndimage.morphology import binary_fill_holes
+from scipy.ndimage import generic_gradient_magnitude, sobel
 import matplotlib.pyplot as plt
 
 
 class PexSegmentObj:
     '''An object containing information for segmented peroxisomes.'''
-    def __init__(self, f_directory, filename, raw_img, gaussian_img, mode,
-                 threshold_img, dist_map,
+    def __init__(self, f_directory, filename, raw_img, gaussian_img, 
+                 seg_method, mode, threshold_img, dist_map,
                  smooth_dist_map, maxima, labs, watershed_output, 
                  segmentation_log, obj_nums, volumes, to_pdout = [], 
                  mode_params = {}):
@@ -31,6 +34,7 @@ class PexSegmentObj:
         self.filename = os.path.basename(filename)
         self.raw_img = raw_img.astype('uint16')
         self.gaussian_img = gaussian_img.astype('uint16')
+        self.seg_method = seg_method
         self.mode = mode
         self.threshold_img = threshold_img.astype('uint16')
         self.dist_map = dist_map.astype('uint16')
@@ -366,9 +370,10 @@ class PexSegmentObj:
 
 class PexSegmenter:
     
-    def __init__(self,filename, mode = 'threshold', **kwargs):
+    def __init__(self,filename, seg_method = 'threshold', mode = 'threshold', **kwargs):
         self.log = []
         self.filename = filename
+        self.seg_method = seg_method
         self.mode = mode
         if mode == 'threshold':
             self.threshold = kwargs.get('threshold',float('nan'))
@@ -381,7 +386,6 @@ class PexSegmenter:
                 raise ValueError('A CellSegmentObj containing segmented cells is required if mode == bg_scaled.')
             if np.isnan(self.bg_diff):
                 raise ValueError('a bg_diff argument is needed if mode == bg_scaled.')
-    
     def segment(self):
         '''Segment peroxisomes within the image.'''
         starttime = time.time() # begin timing
@@ -396,106 +400,177 @@ class PexSegmenter:
         gaussian_img = gaussian_filter(raw_img, [1,1,1])
         self.log.append('cytosolic image smoothed.')
         self.log.append('preprocessing complete.')
-        # binary thresholding and cleanup
-        self.log.append('thresholding...')
-        threshold_img = np.copy(gaussian_img)
-        if self.mode == 'threshold':
-           self.log.append('mode = threshold.')
-           threshold_img[threshold_img < self.threshold] = 0
-           threshold_img[threshold_img > 0] = 1
-           self.log.append('thresholding complete.')
-        if self.mode == 'bg_scaled':
-            self.log.append('mode = background-scaled.')
-            self.thresholds = {}
-            threshold_img = np.zeros(shape = raw_img.shape)
-            for i in self.cells.obj_nums:
-                if i == 0:
-                    pass
-                else:
-                    self.log.append('thresholding cell ' + str(i))
-                    cell_median = np.median(raw_img[self.cells.final_cells == i])
-                    threshold_img[np.logical_and(self.cells.final_cells == i,
-                                  raw_img > cell_median + self.bg_diff)] = 1
-                    self.thresholds[i] = cell_median + self.bg_diff #store val
-            self.log.append('thresholding complete.')
-        # distance and maxima transformation to find objects
-        # next two steps assume 100x objective and 0.2 um slices
-        self.log.append('generating distance map...')
-        dist_map = distance_transform_edt(threshold_img, sampling = (2,1,1))
-        self.log.append('distance map complete.')
-        self.log.append('smoothing distance map...')
-        smooth_dist = gaussian_filter(dist_map, [1,2,2])
-        self.log.append('distance map smoothed.')
-        self.log.append('identifying maxima...')
-        max_strel = generate_binary_structure(3,2)
-        maxima = maximum_filter(smooth_dist,
-                                footprint = max_strel) == smooth_dist
-        # clean up background and edges
-        bgrd_3d = smooth_dist == 0
-        eroded_bgrd = binary_erosion(bgrd_3d, structure = max_strel,
-                                     border_value = 1)
-        maxima = np.logical_xor(maxima, eroded_bgrd)
-        self.log.append('maxima identified.')
-        # watershed segmentation
-        labs = self.watershed_labels(maxima)
-        self.log.append('watershedding...')
-        peroxisomes = watershed(-smooth_dist, labs, mask = threshold_img)
-        self.log.append('watershedding complete.')
-        if self.mode == 'bg_scaled':
-            edge_struct = generate_binary_structure(3,1)
-            self.c_edges = {}
-            self.log.append('finding edges of cells...')
-            for i in self.cells.obj_nums:
-                self.c_edges[i] = np.logical_xor(self.cells.final_cells == i,
-                                                      binary_erosion(self.cells.final_cells== i,
-                                                                     edge_struct))
-            self.log.append('cell edges found.')
-            self.primary_objs = [x for x in np.unique(peroxisomes) if x != 0]
-            self.parent = {}
-            self.obj_edges = {}
-            self.on_edge = {}
-            pex_mask = peroxisomes != 0
-            for obj in self.primary_objs:
-                self.parent[obj] = self.cells.final_cells[labs == obj][0]
-                obj_mask = peroxisomes == obj
-                obj_edge = np.logical_xor(obj_mask, 
-                                          binary_erosion(obj_mask,
-                                                         edge_struct))
-                self.obj_edges[obj] = obj_edge
-                # test if the object's edge and its cell's edge overlap
-                if np.any(np.logical_and(obj_edge,
-                                         self.c_edges[self.parent[obj]])):
-                    self.on_edge[obj] = True
-                    new_obj = obj_mask
-                    search_obj = obj_mask
-                    tester = 0
-                    while tester == 0:
-                        grown_obj = binary_dilation(search_obj, edge_struct)
-                        new_px = np.logical_xor(grown_obj, new_obj)
-                        new_px[np.logical_and(new_px, pex_mask)] = False
-                        if np.any(gaussian_img[new_px] >
-                                  self.thresholds[pex_segmenter.parent[obj]]):
-                            to_add = np.logical_and(new_px, gaussian_img >
-                                                    self.thresholds[obj])
-                            new_obj = np.logical_or(new_obj, to_add)
-                            search_obj = to_add # only search from new pixels
-                        else:
-                            peroxisomes[new_obj] = obj
-                            tester = 1
-                else:
-                    self.on_edge[obj] = False
+        ## SEGMENTATION BY THRESHOLDING THE GAUSSIAN ##
+        if self.seg_method == 'threshold':
+            # binary thresholding and cleanup
+            self.log.append('thresholding...')
+            threshold_img = np.copy(gaussian_img)
+            if self.mode == 'threshold':
+               self.log.append('mode = threshold.')
+               threshold_img[threshold_img < self.threshold] = 0
+               threshold_img[threshold_img > 0] = 1
+               self.log.append('thresholding complete.')
+            if self.mode == 'bg_scaled':
+                self.log.append('mode = background-scaled.')
+                self.thresholds = {}
+                threshold_img = np.zeros(shape = raw_img.shape)
+                for i in self.cells.obj_nums:
+                    if i == 0:
+                        pass
+                    else:
+                        self.log.append('thresholding cell ' + str(i))
+                        cell_median = np.median(gaussian_img[self.cells.final_cells == i])
+                        threshold_img[np.logical_and(self.cells.final_cells == i,
+                                      gaussian_img > cell_median + self.bg_diff)] = 1
+                        self.thresholds[i] = cell_median + self.bg_diff #store val
+                self.log.append('thresholding complete.')
+            # distance and maxima transformation to find objects
+            # next two steps assume 100x objective and 0.2 um slices
+            self.log.append('generating distance map...')
+            dist_map = distance_transform_edt(threshold_img, sampling = (2,1,1))
+            self.log.append('distance map complete.')
+            self.log.append('smoothing distance map...')
+            smooth_dist = gaussian_filter(dist_map, [1,2,2])
+            self.log.append('distance map smoothed.')
+            self.log.append('identifying maxima...')
+            max_strel = generate_binary_structure(3,2)
+            maxima = maximum_filter(smooth_dist,
+                                    footprint = max_strel) == smooth_dist
+            # clean up background and edges
+            bgrd_3d = smooth_dist == 0
+            eroded_bgrd = binary_erosion(bgrd_3d, structure = max_strel,
+                                         border_value = 1)
+            maxima = np.logical_xor(maxima, eroded_bgrd)
+            self.log.append('maxima identified.')
+            # watershed segmentation
+            labs = self.watershed_labels(maxima)
+            self.log.append('watershedding...')
+            peroxisomes = watershed(-smooth_dist, labs, mask = threshold_img)
+            self.log.append('watershedding complete.')
+            if self.mode == 'bg_scaled':
+                edge_struct = generate_binary_structure(3,1)
+                self.c_edges = {}
+                self.log.append('finding edges of cells...')
+                for i in self.cells.obj_nums:
+                    self.c_edges[i] = np.logical_xor(self.cells.final_cells == i,
+                                                          binary_erosion(self.cells.final_cells== i,
+                                                                         edge_struct))
+                self.log.append('cell edges found.')
+                self.primary_objs = [x for x in np.unique(peroxisomes) if x != 0]
+                self.parent = {}
+                self.obj_edges = {}
+                self.on_edge = {}
+                pex_mask = peroxisomes != 0
+                for obj in self.primary_objs:
+                    self.parent[obj] = self.cells.final_cells[labs == obj][0]
+                    obj_mask = peroxisomes == obj
+                    obj_edge = np.logical_xor(obj_mask, 
+                                              binary_erosion(obj_mask,
+                                                             edge_struct))
+                    self.obj_edges[obj] = obj_edge
+                    # test if the object's edge and its cell's edge overlap
+                    if np.any(np.logical_and(obj_edge,
+                                             self.c_edges[self.parent[obj]])):
+                        self.on_edge[obj] = True
+                        print('object on the edge: ' + str(obj))
+                        print('parent cell: ' + str(self.parent[obj]))
+                        new_obj = obj_mask
+                        search_obj = obj_mask
+                        tester = 0
+                        iteration = 1
+                        while tester == 0:
+                            # TODO: FIX THIS BLOCK OF CODE! GETTING STUCK WITHIN
+                            # IT! NOT SURE HOW MANY ITERATIONS ITS DOING, OR FOR
+                            # HOW MANY DIFFERENT PEROXISOMES.
+                            new_px = binary_dilation(search_obj, edge_struct)
+                            new_px[np.logical_or(new_obj, pex_mask)] = False
+                            print('iteration: ' + str(iteration))
+                            # print('new pixels for iteration ' + str(iteration) + \
+                            #      ': ')
+                            # print(np.nonzero(new_px))
+                            if np.any(gaussian_img[new_px] >
+                                      self.thresholds[self.parent[obj]]):
+                                to_add = np.logical_and(new_px, gaussian_img >
+                                                        self.thresholds[self.parent[obj]])
+                                new_obj = np.logical_or(new_obj, to_add)
+                            #    print('object pixels after iteration '
+                            #          + str(iteration) + ': ')
+                            #    print(np.nonzero(new_obj))
+                                search_obj = to_add # only search from new pixels
+                            else:
+                                peroxisomes[new_obj] = obj
+                                tester = 1
+                            iteration = iteration + 1
+                    else:
+                        self.on_edge[obj] = False
+        elif self.seg_method == 'sobel':
+            ## EDGE-DETECTION BASED SEGMENTATION ##
+            norm_gaussian = \
+            gaussian_img.astype('float')/np.amax(gaussian_img)
+            edges = generic_gradient_magnitude(norm_gaussian, sobel)
+            edges = edges*65535/np.amax(edges)
+            edges.astype('uint16')
+            thresh_edges = np.copy(edges)
+            #threshold the edges
+            estrel = generate_binary_structure(3,2)
+            thresh_edges[thresh_edges < 1000] = 0
+            thresh_edges[thresh_edges > 0] = 1
+            threshold_img = binary_fill_holes(thresh_edges)
+            threshold_img = binary_erosion(threshold_img, structure = estrel)
+            dist_map = distance_transform_edt(threshold_img, sampling = (2,1,1))
+            self.log.append('distance map complete.')
+            self.log.append('smoothing distance map...')
+            smooth_dist = gaussian_filter(dist_map, [1,2,2])
+            self.log.append('distance map smoothed.')
+            self.log.append('identifying maxima...')
+            max_strel = generate_binary_structure(3,2)
+            maxima = maximum_filter(smooth_dist,
+                                    footprint = max_strel) == smooth_dist
+            # clean up background and edges
+            bgrd_3d = smooth_dist == 0
+            eroded_bgrd = binary_erosion(bgrd_3d, structure = max_strel,
+                                         border_value = 1)
+            maxima = np.logical_xor(maxima, eroded_bgrd)
+            self.log.append('maxima identified.')
+            # watershed segmentation
+            labs = self.watershed_labels(maxima)
+            self.log.append('watershedding...')
+            peroxisomes = watershed(-smooth_dist, labs, mask = threshold_img)
+            self.log.append('watershedding complete.')
+            if hasattr(self,'cells'):
+                self.primary_objs = [x for x in np.unique(peroxisomes) \
+                                     if x != 0]
+                self.parent = {}
+                for obj in self.primary_objs:
+                    o_parent = self.cells.final_cells[labs == obj][0]
+                    if o_parent == 0:
+                        self.primary_objs.remove(obj)
+                    else:
+                        self.parent[obj] = o_parent
         self.log.append('filtering out too-large and too-small objects...')
         obj_nums, volumes = np.unique(peroxisomes, return_counts = True)
-        pexs_to_remove = obj_nums[np.logical_or(volumes < 5, volumes > 2500)]
-        for obj in pexs_to_remove:
-            peroxisomes[peroxisomes == obj] = 0
-        obj_nums, volumes = np.unique(peroxisomes, return_counts = True)
-        volumes = dict(zip(obj_nums, volumes))
+        volumes = dict(zip(obj_nums.astype('uint16'), volumes))
         del volumes[0]
+        obj_nums = obj_nums.astype('uint16').tolist()
         obj_nums.remove(0)
+        for obj in obj_nums:
+            if volumes[obj] < 5:
+                del volumes[obj]
+                obj_nums.remove(obj)
+            elif volumes[obj] > 3000:
+                # delete the object AND exclude its parent cell from analysis
+                if hasattr(self, 'cells'):
+                    self.cells.obj_nums.remove(self.parent[obj])
+                    self.cells.final_cells[self.cells_final_cells == 
+                                           self.parent[obj]] = 0
+                    del volumes[obj]
+                    obj_nums.remove(obj)
         mode_params = {}
+        if self.seg_method == 'sobel':
+            if hasattr(self, 'parent'):
+                pdout.append('parent')
         if self.mode == 'threshold':
-            mode_params[threshold] = self.threshold
+            mode_params['threshold'] = self.threshold
             pdout.append('volumes')
         elif self.mode == 'bg_scaled':
             mode_params['thresholds'] = self.thresholds
@@ -508,19 +583,11 @@ class PexSegmenter:
             mode_params['parent'] = self.parent
             for x in ['thresholds','on_edge','parent', 'volumes']:
                 pdout.append(x)
-        if self.mode == 'threshold':
-            return PexSegmentObj(f_directory, self.filename, raw_img,
-                                 gaussian_img, self.mode, 
-                                 threshold_img, dist_map, smooth_dist, maxima,
-                                 labs, peroxisomes, self.log, obj_nums,
-                                 volumes, to_pdout = pdout,
-                                 mode_params = mode_params)
-        elif self.mode == 'bg_scaled':
-            return PexSegmentObj(f_directory, self.filename, raw_img,
-                                 gaussian_img, self.mode, 
-                                 threshold_img, dist_map, smooth_dist, maxima,
-                                 labs, peroxisomes, self.log, obj_nums, volumes,
-                                 to_pdout = pdout, mode_params = mode_params)
+        return PexSegmentObj(f_directory, self.filename, raw_img,
+                             gaussian_img, self.seg_method, self.mode, 
+                             threshold_img, dist_map, smooth_dist, maxima,
+                             labs, peroxisomes, self.log, obj_nums, volumes,
+                             to_pdout = pdout, mode_params = mode_params)
 
     ## HELPER METHODS ##
     def watershed_labels(self, maxima_img):
@@ -540,7 +607,4 @@ class PexSegmenter:
 
 
 # TODO LIST:
-    # # PULL THE IMPORTANT PARTS OF THE CELLSEGMENTOBJ OUT AND DISCARD THE REST
-    #   DURING INITIALIZATION OF PEX_SEGMENTER WITH MODE BG_DIFF. IT CURRENTLY 
-    #   PULLS THE WHOLE OBJECT IN, WHICH TAKES A TON OF SPACE.
     # # UPDATE LOG FILE PRINTING
