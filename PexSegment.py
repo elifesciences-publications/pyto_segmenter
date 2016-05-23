@@ -9,13 +9,15 @@ import sys
 import pickle
 import time
 import numpy as np
+import pandas as pd
 from skimage import io
 from skimage.morphology import watershed
+from skimage.feature import canny
 from scipy.ndimage.filters import gaussian_filter, maximum_filter
 from scipy.ndimage.morphology import generate_binary_structure, binary_closing
 from scipy.ndimage.morphology import distance_transform_edt
 from scipy.ndimage.morphology import binary_erosion, binary_dilation
-from scipy.ndimage.morphology import binary_fill_holes
+from scipy.ndimage.morphology import binary_fill_holes, binary_opening
 from scipy.ndimage import generic_gradient_magnitude, sobel
 import matplotlib.pyplot as plt
 
@@ -209,7 +211,8 @@ class PexSegmentObj:
             os.mkdir(output_dir)
         os.chdir(output_dir)
         for_csv = self.to_pandas()
-        for_csv.to_csv(path = output_dir + self.filename[0:self.filename.index('.')],
+        for_csv.to_csv(path_or_buf = output_dir + '/' +
+                       self.filename[0:self.filename.index('.')]+ '.csv',
                        index = True, header = True)
         
     ## HELPER METHODS ##
@@ -225,7 +228,7 @@ class PexSegmentObj:
             df_dict[str(attr)] = pd.Series(getattr(self, attr))
         if 'volumes' in self.pdout:
             vflag_out = dict(zip(self.obj_nums,
-                                 self.volumes_flag*len(self.obj_nums)))
+                                 [self.volumes_flag]*len(self.obj_nums)))
             df_dict['volumes_flag'] = pd.Series(vflag_out)
         return pd.DataFrame(df_dict)
     def convert_volumes(self, z = 0.2, x = 0.0675):
@@ -375,17 +378,21 @@ class PexSegmenter:
         self.filename = filename
         self.seg_method = seg_method
         self.mode = mode
-        if mode == 'threshold':
-            self.threshold = kwargs.get('threshold',float('nan'))
-            if np.isnan(self.threshold):
-                raise ValueError('A threshold argument must be provided to segment with a constant threshold.')
-        if mode == 'bg_scaled':
-            self.cells = kwargs.get('cells', '')
-            self.bg_diff = float(kwargs.get('bg_diff',float('nan')))
-            if self.cells == '':
-                raise ValueError('A CellSegmentObj containing segmented cells is required if mode == bg_scaled.')
-            if np.isnan(self.bg_diff):
-                raise ValueError('a bg_diff argument is needed if mode == bg_scaled.')
+        if self.seg_method == 'canny':
+            self.high_threshold = kwargs.get('high_threshold',1000)
+            self.low_threshold = kwargs.get('low_threshold',500)
+        if self.seg_method == 'threshold':
+            if mode == 'threshold':
+                self.threshold = kwargs.get('threshold',float('nan'))
+                if np.isnan(self.threshold):
+                    raise ValueError('A threshold argument must be provided to segment with a constant threshold.')
+            if mode == 'bg_scaled':
+                self.cells = kwargs.get('cells', '')
+                self.bg_diff = float(kwargs.get('bg_diff',float('nan')))
+                if self.cells == '':
+                    raise ValueError('A CellSegmentObj containing segmented cells is required if mode == bg_scaled.')
+                if np.isnan(self.bg_diff):
+                    raise ValueError('a bg_diff argument is needed if mode == bg_scaled.')
     def segment(self):
         '''Segment peroxisomes within the image.'''
         starttime = time.time() # begin timing
@@ -503,21 +510,20 @@ class PexSegmenter:
                             iteration = iteration + 1
                     else:
                         self.on_edge[obj] = False
-        elif self.seg_method == 'sobel':
+        elif self.seg_method == 'canny':
             ## EDGE-DETECTION BASED SEGMENTATION ##
-            norm_gaussian = \
-            gaussian_img.astype('float')/np.amax(gaussian_img)
-            edges = generic_gradient_magnitude(norm_gaussian, sobel)
-            edges = edges*65535/np.amax(edges)
-            edges.astype('uint16')
-            thresh_edges = np.copy(edges)
-            #threshold the edges
-            estrel = generate_binary_structure(3,2)
-            thresh_edges[thresh_edges < 1000] = 0
-            thresh_edges[thresh_edges > 0] = 1
-            threshold_img = binary_fill_holes(thresh_edges)
-            threshold_img = binary_erosion(threshold_img, structure = estrel)
-            dist_map = distance_transform_edt(threshold_img, sampling = (2,1,1))
+            threshold_img = np.empty_like(gaussian_img)
+            c_strel = generate_binary_structure(2,1)
+            for s in range(0,gaussian_img.shape[0]):
+                c = canny(gaussian_img[s,:,:],
+                          sigma = 0,
+                          low_threshold = self.low_threshold,
+                          high_threshold = self.high_threshold)
+                c = binary_closing(c,c_strel)
+                c = binary_fill_holes(c)
+                c = binary_opening(c, c_strel) # eliminate incomplete lines
+                threshold_img[s,:,:] = c
+            dist_map = distance_transform_edt(threshold_img, sampling = (3,1,1))
             self.log.append('distance map complete.')
             self.log.append('smoothing distance map...')
             smooth_dist = gaussian_filter(dist_map, [1,2,2])
@@ -565,24 +571,28 @@ class PexSegmenter:
                                            self.parent[obj]] = 0
                     del volumes[obj]
                     obj_nums.remove(obj)
-        mode_params = {}
-        if self.seg_method == 'sobel':
-            if hasattr(self, 'parent'):
-                pdout.append('parent')
-        if self.mode == 'threshold':
-            mode_params['threshold'] = self.threshold
-            pdout.append('volumes')
-        elif self.mode == 'bg_scaled':
-            mode_params['thresholds'] = self.thresholds
-            mode_params['bg_diff'] = self.bg_diff
-            mode_params['cells'] = self.cells
-            mode_params['cell_edges'] = self.c_edges
-            mode_params['cell_nums'] = self.cells.obj_nums
-            mode_params['obj_edges'] = self.obj_edges
-            mode_params['on_edge'] = self.on_edge
+        if hasattr(self, 'parent'):
+            pdout.append('parent')
             mode_params['parent'] = self.parent
-            for x in ['thresholds','on_edge','parent', 'volumes']:
-                pdout.append(x)
+        mode_params = {}
+        if self.seg_method == 'canny':
+            mode_params['high_threshold'] = self.high_threshold
+            mode_params['low_threshold'] = self.low_threshold
+            pdout.append('volumes')
+        if self.seg_method == 'threshold':
+            if self.mode == 'threshold':
+                mode_params['threshold'] = self.threshold
+                pdout.append('volumes')
+            elif self.mode == 'bg_scaled':
+                mode_params['thresholds'] = self.thresholds
+                mode_params['bg_diff'] = self.bg_diff
+                mode_params['cells'] = self.cells
+                mode_params['cell_edges'] = self.c_edges
+                mode_params['cell_nums'] = self.cells.obj_nums
+                mode_params['obj_edges'] = self.obj_edges
+                mode_params['on_edge'] = self.on_edge
+                for x in ['thresholds','on_edge','parent', 'volumes']:
+                    pdout.append(x)
         return PexSegmentObj(f_directory, self.filename, raw_img,
                              gaussian_img, self.seg_method, self.mode, 
                              threshold_img, dist_map, smooth_dist, maxima,

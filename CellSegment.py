@@ -145,7 +145,8 @@ class CellSegmentObj:
             os.mkdir(output_dir)
         os.chdir(output_dir)
         for_csv = self.to_pandas()
-        for_csv.to_csv(path = output_dir + self.filename[0:self.filename.index('.')],
+        for_csv.to_csv(path_or_buf = output_dir + '/' +
+                       self.filename[0:self.filename.index('.')]+'.csv',
                        index = True, header = True)
     def output_image(self, imageattr, output_dir = None):
         os.chdir(self.f_directory)
@@ -270,7 +271,7 @@ class CellSegmentObj:
             df_dict[str(attr)] = pd.Series(getattr(self, attr))
         if 'volumes' in self.pdout:
             vflag_out = dict(zip(self.obj_nums,
-                                 self.volumes_flag*len(self.obj_nums)))
+                                 [self.volumes_flag]*len(self.obj_nums)))
             df_dict['volumes_flag'] = pd.Series(vflag_out)
         return pd.DataFrame(df_dict)
     def convert_volumes(self, z = 0.2, x = 0.0675):
