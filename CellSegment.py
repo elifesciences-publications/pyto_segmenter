@@ -434,10 +434,11 @@ class CellSegmenter:
         f_directory = os.getcwd()
         self.log.append('reading ' + self.filename + ' ...')
         raw_img = io.imread(self.filename)
+        print(raw_img.shape)
         self.log.append('raw image imported.')
         # next step's gaussian filter assumes 100x obj and 0.2 um slices
         self.log.append('performing gaussian filtering...')
-        gaussian_img = gaussian_filter(raw_img, [1,2,2])
+        gaussian_img = gaussian_filter(input = raw_img, sigma = (1,2,2))
         self.log.append('cytosolic image smoothed.')
         self.log.append('preprocessing complete.')
         ## BINARY THRESHOLDING AND IMAGE CLEANUP
