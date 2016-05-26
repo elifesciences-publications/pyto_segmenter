@@ -8,6 +8,7 @@ import os
 import sys
 import pickle
 import time
+from operator import itemgetter
 import numpy as np
 import pandas as pd
 from skimage import io
@@ -562,10 +563,7 @@ class PexSegmenter:
         obj_nums = obj_nums.astype('uint16').tolist()
         obj_nums.remove(0)
         for obj in obj_nums:
-            if volumes[obj] < 5:
-                del volumes[obj]
-                obj_nums.remove(obj)
-            elif volumes[obj] > 3000:
+            if volumes[obj] > 3000:
                 # delete the object AND exclude its parent cell from analysis
                 if hasattr(self, 'cells'):
                     self.cells.obj_nums.remove(self.parent[obj])
@@ -573,6 +571,24 @@ class PexSegmenter:
                                            self.parent[obj]] = 0
                     del volumes[obj]
                     obj_nums.remove(obj)
+        # merge objects that segmented into diff objects by Z slice
+        for s in range(1,peroxisomes.shape[0]):
+            cslice = peroxisomes[s,:,:]
+            lslice = peroxisomes[s-1,:,:]
+            for obj in np.unique(cslice)[np.unique(cslice)!= 0]:
+                lslice_vals, cts = np.unique(lslice[cslice == obj],
+                                             return_counts = True)
+                lslice_vals = lslice_vals.tolist()
+                cts = cts.tolist()
+                ordered_by_ct = sorted(zip(lslice_vals, cts),
+                                       key = itemgetter(1))
+                if ordered_by_ct[-1][0] == 0 or ordered_by_ct[-1][0] == obj:
+                    continue
+                else:
+                    # if >75% of pixels in the slice below obj are from another
+                    # object, change obj to that object #
+                    if float(ordered_by_ct[-1][1])/cslice[cslice == obj].size>0.5:
+                        peroxisomes[s,:,:][cslice == obj] = ordered_by_ct[-1][0]
         mode_params = {}
         if hasattr(self, 'parent'):
             pdout.append('parent')
