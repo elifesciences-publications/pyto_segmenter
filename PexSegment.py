@@ -33,7 +33,7 @@ class PexSegmentObj:
         self.log = segmentation_log
         self.log.append('creating PexSegmentObj...')
         self.f_directory = f_directory
-        self.filename = os.path.basename(filename)
+        self.filename = os.path.basename(filename).lower()
         self.raw_img = raw_img.astype('uint16')
         self.gaussian_img = gaussian_img.astype('uint16')
         self.seg_method = seg_method
@@ -108,7 +108,7 @@ class PexSegmentObj:
         '''
         os.chdir(self.f_directory)
         if output_dir == None:
-            output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.')]
+            output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.tif')]
         if not os.path.isdir(output_dir):
             self.log.append('creating output directory...')
             os.mkdir(output_dir)
@@ -124,7 +124,7 @@ class PexSegmentObj:
     def output_image(self, imageattr, output_dir = None):
         os.chdir(self.f_directory)
         if output_dir == None:
-            output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.')]
+            output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.tif')]
         if not os.path.isdir(output_dir):
             self.log.append('creating output directory...')
             os.mkdir(output_dir)
@@ -142,57 +142,57 @@ class PexSegmentObj:
         '''
         os.chdir(self.f_directory)
         if not os.path.isdir(self.f_directory + '/' +
-                             self.filename[0:self.filename.index('.')]):
+                             self.filename[0:self.filename.index('.tif')]):
             self.log.append('creating output directory...')
             os.mkdir(self.f_directory + '/' +
-                     self.filename[0:self.filename.index('.')])
+                     self.filename[0:self.filename.index('.tif')])
         os.chdir(self.f_directory + '/' +
-                 self.filename[0:self.filename.index('.')])
+                 self.filename[0:self.filename.index('.tif')])
         self.log.append('saving plots...')
         self.plot_raw_img()
-        plt.savefig('praw_'+self.filename[0:self.filename.index('.')]+'.pdf')
+        plt.savefig('praw_'+self.filename[0:self.filename.index('.tif')]+'.pdf')
         self.plot_gaussian_img()
         plt.savefig('pgaussian_' +
-                    self.filename[0:self.filename.index('.')]+'.pdf')
+                    self.filename[0:self.filename.index('.tif')]+'.pdf')
         self.plot_threshold_img()
         plt.savefig('pthreshold_' +
-                    self.filename[0:self.filename.index('.')]+'.pdf')
+                    self.filename[0:self.filename.index('.tif')]+'.pdf')
         plt.savefig('pdist_' +
-                    self.filename[0:self.filename.index('.')]+'.pdf')
+                    self.filename[0:self.filename.index('.tif')]+'.pdf')
         self.plot_smooth_dist_map()
         plt.savefig('psmooth_dist_' + 
-                    self.filename[0:self.filename.index('.')]+'.pdf')
+                    self.filename[0:self.filename.index('.tif')]+'.pdf')
         self.plot_maxima()
         plt.savefig('pmaxima_' +
-                    self.filename[0:self.filename.index('.')]+'.pdf')
+                    self.filename[0:self.filename.index('.tif')]+'.pdf')
         self.plot_watershed()
         plt.savefig('pwshed_' +
-                    self.filename[0:self.filename.index('.')]+'.pdf')
+                    self.filename[0:self.filename.index('.tif')]+'.pdf')
     def pickle(self, output_dir = None):
         '''pickle the CellSegmentObj for later loading.'''
         if output_dir == None:
-            output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.')]
+            output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.tif')]
         if not os.path.isdir(output_dir):
             self.log.append('creating output directory...')
             os.mkdir(output_dir)
         os.chdir(output_dir)
         with open('pickled_' +
-                    self.filename[0:self.filename.index('.')] + 
+                    self.filename[0:self.filename.index('.tif')] + 
                   '.pickle', 'wb') as f:
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
         f.close()
     def output_all(self):
         os.chdir(self.f_directory)
         if not os.path.isdir(self.f_directory + '/' +
-                             self.filename[0:self.filename.index('.')]):
+                             self.filename[0:self.filename.index('.tif')]):
             os.mkdir(self.f_directory + '/' +
-                     self.filename[0:self.filename.index('.')])
+                     self.filename[0:self.filename.index('.tif')])
         os.chdir(self.f_directory + '/' +
-                 self.filename[0:self.filename.index('.')])
+                 self.filename[0:self.filename.index('.tif')])
         self.log.append('outputting all data...')
         self.output_plots()
         self.output_all_images()
-        self.mk_log_file('log_'+self.filename[0:self.filename.index('.')]+'.txt')
+        self.mk_log_file('log_'+self.filename[0:self.filename.index('.tif')]+'.txt')
         self.pickle()
         # TODO: UPDATE THIS METHOD TO INCLUDE PANDAS OUTPUT
     def output_slim(self):
@@ -205,14 +205,14 @@ class PexSegmentObj:
     def to_csv(self, output_dir = None):
         os.chdir(self.f_directory)
         if output_dir == None:
-            output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.')]
+            output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.tif')]
         if not os.path.isdir(output_dir):
             self.log.append('creating output directory...')
             os.mkdir(output_dir)
         os.chdir(output_dir)
         for_csv = self.to_pandas()
         for_csv.to_csv(path_or_buf = output_dir + '/' +
-                       self.filename[0:self.filename.index('.')]+ '.csv',
+                       self.filename[0:self.filename.index('.tif')]+ '.csv',
                        index = True, header = True)
         
     ## HELPER METHODS ##
