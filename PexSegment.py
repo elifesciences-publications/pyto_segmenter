@@ -378,6 +378,8 @@ class PexSegmenter:
         self.filename = filename
         self.seg_method = seg_method
         self.mode = mode
+        for key, value in kwargs.items():
+            setattr(self,key,value)
         if self.seg_method == 'canny':
             self.high_threshold = kwargs.get('high_threshold',1000)
             self.low_threshold = kwargs.get('low_threshold',500)
@@ -571,10 +573,10 @@ class PexSegmenter:
                                            self.parent[obj]] = 0
                     del volumes[obj]
                     obj_nums.remove(obj)
+        mode_params = {}
         if hasattr(self, 'parent'):
             pdout.append('parent')
             mode_params['parent'] = self.parent
-        mode_params = {}
         if self.seg_method == 'canny':
             mode_params['high_threshold'] = self.high_threshold
             mode_params['low_threshold'] = self.low_threshold
