@@ -50,10 +50,11 @@ class PexSegmentObj:
         self.width = self.raw_img.shape[2]
         self.log = segmentation_log
         self.obj_nums = obj_nums
-        self.npexs = len(self.obj_nums)-1
+        self.npexs = len(self.obj_nums)
         self.volumes = volumes
         self.volumes_flag = 'pixels'
         self.pdout = []
+        self.border_rm_flag = False
         for key in mode_params:
             if hasattr(self, key):
                 raise AttributeError('Two copies of the attribute ' + key +
@@ -217,6 +218,39 @@ class PexSegmentObj:
                        index = True, header = True)
         
     ## HELPER METHODS ##
+
+    def rm_border_objs(self, border = 1, z = True):
+        '''remove all objects that contact the edge of the 3D stack.
+
+        args:
+            border: the size of the border around the edge which a pixel from
+               the object must contact to be removed.
+            z: should objects that contact the z-axis edge be eliminated? if
+               true, any object with a pixel in the top or bottom image of the
+               stack is removed.
+
+        output: alters the objects within the PexSegmentObj. removes objects
+        from the peroxisomes image, the obj_nums, and all other variables with
+        elements of obj_nums as keys in a dict (parents, volumes, etc)
+        '''
+
+        border_mask = np.full(shape = self.peroxisomes.shape, value = True,
+                              dtype = bool)
+        if z == True:
+            border_mask[border:-border,border:-border,border:-border] = False
+        elif z == False:
+            border_mask[:,border:-border,border:-border] = False
+        objs_to_rm = np.unique(self.peroxisomes[border_mask])
+        objs_to_rm = objs_to_rm[objs_to_rm != 0]
+        for x in objs_to_rm:
+            self.peroxisomes[self.peroxisomes == x] = 0
+            self.obj_nums.remove(x)
+            self.volumes.pop(x, None)
+            if hasattr(self, "parent"):
+                self.parent.pop(x, None)
+        self.npexs = len(self.obj_nums)
+        self.border_rm_flag = True
+
 
     def to_pandas(self):
         '''create a pandas DataFrame of tabulated numeric data.
