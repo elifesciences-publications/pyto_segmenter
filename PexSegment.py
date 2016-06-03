@@ -28,11 +28,10 @@ class PexSegmentObj:
     def __init__(self, f_directory, filename, raw_img, gaussian_img, 
                  seg_method, mode, threshold_img, dist_map,
                  smooth_dist_map, maxima, labs, watershed_output, 
-                 segmentation_log, obj_nums, volumes, to_pdout = [], 
+                 obj_nums, volumes, to_pdout = [], 
                  mode_params = {}):
         '''Initialize the PexSegmentObj with segmentation data.'''
-        self.log = segmentation_log
-        self.log.append('creating PexSegmentObj...')
+        print('creating PexSegmentObj...')
         self.f_directory = f_directory
         self.filename = os.path.basename(filename).lower()
         self.raw_img = raw_img.astype('uint16')
@@ -48,7 +47,6 @@ class PexSegmentObj:
         self.slices = self.raw_img.shape[0]
         self.height = self.raw_img.shape[1]
         self.width = self.raw_img.shape[2]
-        self.log = segmentation_log
         self.obj_nums = obj_nums
         self.npexs = len(self.obj_nums)
         self.volumes = volumes
@@ -112,10 +110,10 @@ class PexSegmentObj:
         if output_dir == None:
             output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.tif')]
         if not os.path.isdir(output_dir):
-            self.log.append('creating output directory...')
+            print('creating output directory...')
             os.mkdir(output_dir)
         os.chdir(output_dir)
-        self.log.append('writing images...')
+        print('writing images...')
         io.imsave('raw_'+self.filename, self.raw_img)
         io.imsave('gaussian_'+self.filename, self.gaussian_img)
         io.imsave('threshold_'+self.filename, self.threshold_img)
@@ -128,10 +126,10 @@ class PexSegmentObj:
         if output_dir == None:
             output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.tif')]
         if not os.path.isdir(output_dir):
-            self.log.append('creating output directory...')
+            print('creating output directory...')
             os.mkdir(output_dir)
         os.chdir(output_dir)
-        self.log.append('writing image' + str(imageattr))
+        print('writing image' + str(imageattr))
         io.imsave(str(imageattr)+self.filename, getattr(self,str(imageattr)))
 
     def output_plots(self):
@@ -145,12 +143,12 @@ class PexSegmentObj:
         os.chdir(self.f_directory)
         if not os.path.isdir(self.f_directory + '/' +
                              self.filename[0:self.filename.index('.tif')]):
-            self.log.append('creating output directory...')
+            print('creating output directory...')
             os.mkdir(self.f_directory + '/' +
                      self.filename[0:self.filename.index('.tif')])
         os.chdir(self.f_directory + '/' +
                  self.filename[0:self.filename.index('.tif')])
-        self.log.append('saving plots...')
+        print('saving plots...')
         self.plot_raw_img()
         plt.savefig('praw_'+self.filename[0:self.filename.index('.tif')]+'.pdf')
         self.plot_gaussian_img()
@@ -175,7 +173,7 @@ class PexSegmentObj:
         if output_dir == None:
             output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.tif')]
         if not os.path.isdir(output_dir):
-            self.log.append('creating output directory...')
+            print('creating output directory...')
             os.mkdir(output_dir)
         os.chdir(output_dir)
         with open('pickled_' +
@@ -191,10 +189,9 @@ class PexSegmentObj:
                      self.filename[0:self.filename.index('.tif')])
         os.chdir(self.f_directory + '/' +
                  self.filename[0:self.filename.index('.tif')])
-        self.log.append('outputting all data...')
+        print('outputting all data...')
         self.output_plots()
         self.output_all_images()
-        self.mk_log_file('log_'+self.filename[0:self.filename.index('.tif')]+'.txt')
         self.pickle()
         # TODO: UPDATE THIS METHOD TO INCLUDE PANDAS OUTPUT
     def output_slim(self):
@@ -209,7 +206,7 @@ class PexSegmentObj:
         if output_dir == None:
             output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.tif')]
         if not os.path.isdir(output_dir):
-            self.log.append('creating output directory...')
+            print('creating output directory...')
             os.mkdir(output_dir)
         os.chdir(output_dir)
         for_csv = self.to_pandas()
@@ -234,7 +231,7 @@ class PexSegmentObj:
         elements of obj_nums as keys in a dict (parents, volumes, etc)
         '''
 
-        border_mask = np.full(shape = self.peroxisomes.shape, value = True,
+        border_mask = np.full(shape = self.peroxisomes.shape, fill_value = True,
                               dtype = bool)
         if z == True:
             border_mask[border:-border,border:-border,border:-border] = False
@@ -328,26 +325,6 @@ class PexSegmentObj:
 
             f.set_figwidth(16)
             f.set_figheight(4*np.ceil(nimgs/4))
-    def mk_log_file(self, fname):
-        '''Write the log file list to a text file.
-        kwargs:
-            fname: filename to write to.
-            '''
-        self.log.append('making log file...')
-        # TODO: IMPLEMENT A BETTER OUTPUT FORMAT (TABULAR) FOR PARAMETERS LIKE
-        # VOLUMES, PARENTS, ETC.
-        with open(fname, 'w') as f:
-            for s in self.log:
-                f.write(s + '\n')
-            f.write('number of slices: ' + str(self.slices) + '\n')
-            f.write('width: ' + str(self.width) + '\n')
-            f.write('height: ' + str(self.height) + '\n')
-            f.write('threshold parameters: ' + str(self.mode_params) + '\n')
-            f.write('number of objects: ' + str(self.npexs) + '\n')
-            f.write('volumes of objects: ' + 
-                    str(self.volumes) + '\n')
-            f.write('volume units: ' + str(self.volumes_flag) + '\n')
-            f.close()
     def slim(self):
         '''remove all of the processing intermediates from the object, leaving
         only the core information required for later analysis. primarily
@@ -409,7 +386,6 @@ class PexSegmentObj:
 class PexSegmenter:
     
     def __init__(self,filename, seg_method = 'threshold', mode = 'threshold', **kwargs):
-        self.log = []
         self.filename = filename
         self.seg_method = seg_method
         self.mode = mode
@@ -436,47 +412,47 @@ class PexSegmenter:
         f_directory = os.getcwd()
         pdout = []
         # data import
-        self.log.append('reading' + self.filename)
+        print('reading' + self.filename)
         raw_img = io.imread(self.filename)
-        self.log.append('raw image imported.')
+        print('raw image imported.')
         # gaussian filter assuming 100x objective and 0.2 um slices
-        self.log.append('performing gaussian filtering...')
+        print('performing gaussian filtering...')
         gaussian_img = gaussian_filter(raw_img, [1,1,1])
-        self.log.append('cytosolic image smoothed.')
-        self.log.append('preprocessing complete.')
+        print('cytosolic image smoothed.')
+        print('preprocessing complete.')
         ## SEGMENTATION BY THRESHOLDING THE GAUSSIAN ##
         if self.seg_method == 'threshold':
             # binary thresholding and cleanup
-            self.log.append('thresholding...')
+            print('thresholding...')
             threshold_img = np.copy(gaussian_img)
             if self.mode == 'threshold':
-               self.log.append('mode = threshold.')
+               print('mode = threshold.')
                threshold_img[threshold_img < self.threshold] = 0
                threshold_img[threshold_img > 0] = 1
-               self.log.append('thresholding complete.')
+               print('thresholding complete.')
             if self.mode == 'bg_scaled':
-                self.log.append('mode = background-scaled.')
+                print('mode = background-scaled.')
                 self.thresholds = {}
                 threshold_img = np.zeros(shape = raw_img.shape)
                 for i in self.cells.obj_nums:
                     if i == 0:
                         pass
                     else:
-                        self.log.append('thresholding cell ' + str(i))
+                        print('thresholding cell ' + str(i))
                         cell_median = np.median(gaussian_img[self.cells.final_cells == i])
                         threshold_img[np.logical_and(self.cells.final_cells == i,
                                       gaussian_img > cell_median + self.bg_diff)] = 1
                         self.thresholds[i] = cell_median + self.bg_diff #store val
-                self.log.append('thresholding complete.')
+                print('thresholding complete.')
             # distance and maxima transformation to find objects
             # next two steps assume 100x objective and 0.2 um slices
-            self.log.append('generating distance map...')
+            print('generating distance map...')
             dist_map = distance_transform_edt(threshold_img, sampling = (2,1,1))
-            self.log.append('distance map complete.')
-            self.log.append('smoothing distance map...')
+            print('distance map complete.')
+            print('smoothing distance map...')
             smooth_dist = gaussian_filter(dist_map, [1,2,2])
-            self.log.append('distance map smoothed.')
-            self.log.append('identifying maxima...')
+            print('distance map smoothed.')
+            print('identifying maxima...')
             max_strel = generate_binary_structure(3,2)
             maxima = maximum_filter(smooth_dist,
                                     footprint = max_strel) == smooth_dist
@@ -485,21 +461,21 @@ class PexSegmenter:
             eroded_bgrd = binary_erosion(bgrd_3d, structure = max_strel,
                                          border_value = 1)
             maxima = np.logical_xor(maxima, eroded_bgrd)
-            self.log.append('maxima identified.')
+            print('maxima identified.')
             # watershed segmentation
             labs = self.watershed_labels(maxima)
-            self.log.append('watershedding...')
+            print('watershedding...')
             peroxisomes = watershed(-smooth_dist, labs, mask = threshold_img)
-            self.log.append('watershedding complete.')
+            print('watershedding complete.')
             if self.mode == 'bg_scaled':
                 edge_struct = generate_binary_structure(3,1)
                 self.c_edges = {}
-                self.log.append('finding edges of cells...')
+                print('finding edges of cells...')
                 for i in self.cells.obj_nums:
                     self.c_edges[i] = np.logical_xor(self.cells.final_cells == i,
                                                           binary_erosion(self.cells.final_cells== i,
                                                                          edge_struct))
-                self.log.append('cell edges found.')
+                print('cell edges found.')
                 self.primary_objs = [x for x in np.unique(peroxisomes) if x != 0]
                 self.parent = {}
                 self.obj_edges = {}
@@ -561,11 +537,11 @@ class PexSegmenter:
                 c = binary_opening(c, c_strel) # eliminate incomplete lines
                 threshold_img[s,:,:] = c
             dist_map = distance_transform_edt(threshold_img, sampling = (3,1,1))
-            self.log.append('distance map complete.')
-            self.log.append('smoothing distance map...')
+            print('distance map complete.')
+            print('smoothing distance map...')
             smooth_dist = gaussian_filter(dist_map, [1,2,2])
-            self.log.append('distance map smoothed.')
-            self.log.append('identifying maxima...')
+            print('distance map smoothed.')
+            print('identifying maxima...')
             max_strel = generate_binary_structure(3,2)
             maxima = maximum_filter(smooth_dist,
                                     footprint = max_strel) == smooth_dist
@@ -574,12 +550,12 @@ class PexSegmenter:
             eroded_bgrd = binary_erosion(bgrd_3d, structure = max_strel,
                                          border_value = 1)
             maxima = np.logical_xor(maxima, eroded_bgrd)
-            self.log.append('maxima identified.')
+            print('maxima identified.')
             # watershed segmentation
             labs = self.watershed_labels(maxima)
-            self.log.append('watershedding...')
+            print('watershedding...')
             peroxisomes = watershed(-smooth_dist, labs, mask = threshold_img)
-            self.log.append('watershedding complete.')
+            print('watershedding complete.')
             if hasattr(self,'cells'):
                 self.primary_objs = [x for x in np.unique(peroxisomes) \
                                      if x != 0]
@@ -590,7 +566,7 @@ class PexSegmenter:
                         self.primary_objs.remove(obj)
                     else:
                         self.parent[obj] = o_parent
-        self.log.append('filtering out too-large and too-small objects...')
+        print('filtering out too-large and too-small objects...')
         obj_nums, volumes = np.unique(peroxisomes, return_counts = True)
         volumes = dict(zip(obj_nums.astype('uint16'), volumes))
         del volumes[0]
@@ -648,7 +624,7 @@ class PexSegmenter:
         return PexSegmentObj(f_directory, self.filename, raw_img,
                              gaussian_img, self.seg_method, self.mode, 
                              threshold_img, dist_map, smooth_dist, maxima,
-                             labs, peroxisomes, self.log, obj_nums, volumes,
+                             labs, peroxisomes, obj_nums, volumes,
                              to_pdout = pdout, mode_params = mode_params)
 
     ## HELPER METHODS ##
