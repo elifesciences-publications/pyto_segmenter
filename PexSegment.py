@@ -566,22 +566,6 @@ class PexSegmenter:
                         self.primary_objs.remove(obj)
                     else:
                         self.parent[obj] = o_parent
-        print('filtering out too-large and too-small objects...')
-        obj_nums, volumes = np.unique(peroxisomes, return_counts = True)
-        volumes = dict(zip(obj_nums.astype('uint16'), volumes))
-        del volumes[0]
-        obj_nums = obj_nums.astype('uint16').tolist()
-        obj_nums.remove(0)
-        for obj in obj_nums:
-            if volumes[obj] > 3000:
-                # delete the object AND exclude its parent cell from analysis
-                if hasattr(self, 'cells'):
-                    self.cells.obj_nums.remove(self.parent[obj])
-                    self.cells.final_cells[self.cells_final_cells == 
-                                           self.parent[obj]] = 0
-                    del volumes[obj]
-                    obj_nums.remove(obj)
-        # merge objects that segmented into diff objects by Z slice
         for s in range(1,peroxisomes.shape[0]):
             cslice = peroxisomes[s,:,:]
             lslice = peroxisomes[s-1,:,:]
@@ -599,6 +583,22 @@ class PexSegmenter:
                     # object, change obj to that object #
                     if float(ordered_by_ct[-1][1])/cslice[cslice == obj].size>0.5:
                         peroxisomes[s,:,:][cslice == obj] = ordered_by_ct[-1][0]
+        print('filtering out too-large and too-small objects...')
+        obj_nums, volumes = np.unique(peroxisomes, return_counts = True)
+        volumes = dict(zip(obj_nums.astype('uint16'), volumes))
+        del volumes[0]
+        obj_nums = obj_nums.astype('uint16').tolist()
+        obj_nums.remove(0)
+        for obj in obj_nums:
+            if volumes[obj] > 3000:
+                # delete the object AND exclude its parent cell from analysis
+                if hasattr(self, 'cells'):
+                    self.cells.obj_nums.remove(self.parent[obj])
+                    self.cells.final_cells[self.cells_final_cells == 
+                                           self.parent[obj]] = 0
+                    del volumes[obj]
+                    obj_nums.remove(obj)
+        # merge objects that segmented into diff objects by Z slice
         mode_params = {}
         if hasattr(self, 'parent'):
             pdout.append('parent')
