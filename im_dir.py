@@ -1,6 +1,6 @@
 #### FUNCTIONS AND CLASSES FOR MICROSCOPY DIRECTORY MANIPULATION ####
 
-def rm_wlength(im_fname, wlength_string, delimiter = '_'):
+def rm_wlength(fname, wlength_string, delimiter = '_'):
     '''Remove wavelength information from image filename.'''
 
     split_fname = fname.split(delimiter)
