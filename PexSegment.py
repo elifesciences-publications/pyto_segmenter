@@ -122,7 +122,6 @@ class PexSegmentObj:
         io.imsave('maxima_'+self.filename,self.maxima)
         io.imsave('wshed_'+self.filename,self.peroxisomes)
     def output_image(self, imageattr, output_dir = None):
-        os.chdir(self.f_directory)
         if output_dir == None:
             output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.tif')]
         if not os.path.isdir(output_dir):
