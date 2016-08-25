@@ -1,5 +1,12 @@
 #### FUNCTIONS AND CLASSES FOR MICROSCOPY DIRECTORY MANIPULATION ####
 
+def rm_wlength(im_fname, wlength_string, delimiter = '_'):
+    '''Remove wavelength information from image filename.'''
+
+    split_fname = fname.split(delimiter)
+    shortened_fname = delimiter.join([x for x in split_fname if wlength_string not in x])
+    return shortened_fname
+
 def mk_fname_ref(img_list, wlength_string, delimiter = '_'):
     '''Create a reference dict for matching stage position images from
     different channels.
@@ -24,8 +31,8 @@ def mk_fname_ref(img_list, wlength_string, delimiter = '_'):
     wlength_imlist = [i for i in img_list if wlength_string in i]
     wlength_rm = []
     for fname in wlength_imlist:
-        split_fname = fname.split(delimiter)
-        fname_no_wlength = '_'.join([x for x in split_fname if wlength_string
-                                     not in x])
-        wlength_rm.append(fname_no_wlength)
+        wlength_rm.append(rm_wlength(fname, wlength_string,
+                                     delimiter))
     return dict(zip(wlength_rm, wlength_imlist))
+
+
