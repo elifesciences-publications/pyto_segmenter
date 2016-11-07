@@ -1,4 +1,4 @@
-'''Classes and methods for segmentation of spherical objects within cells.'''
+'''Classes and methods for segmentation of reticular objects within cells.'''
 
 
 ## IMPORT DEPENDENCIES
@@ -23,15 +23,15 @@ from scipy.ndimage import generic_gradient_magnitude, sobel
 import matplotlib.pyplot as plt
 
 
-class PexSegmentObj:
-    '''An object containing information for segmented peroxisomes.'''
+class MitoSegmentObj:
+    '''An object containing information for segmented mitochondria.'''
     def __init__(self, f_directory, filename, raw_img, gaussian_img, 
                  seg_method, mode, threshold_img, dist_map,
                  smooth_dist_map, maxima, labs, watershed_output, 
                  obj_nums, volumes, to_pdout = [], 
                  mode_params = {}):
-        '''Initialize the PexSegmentObj with segmentation data.'''
-        print('creating PexSegmentObj...')
+        '''Initialize the MitoSegmentObj with segmentation data.'''
+        print('creating MitoSegmentObj...')
         self.f_directory = f_directory
         self.filename = os.path.basename(filename).lower()
         self.raw_img = raw_img.astype('uint16')
@@ -43,12 +43,12 @@ class PexSegmentObj:
         self.smooth_dist_map = smooth_dist_map.astype('uint16')
         self.maxima = maxima.astype('uint16')
         self.labs = labs.astype('uint16')
-        self.peroxisomes = watershed_output.astype('uint16')
+        self.mitochondria = watershed_output.astype('uint16')
         self.slices = self.raw_img.shape[0]
         self.height = self.raw_img.shape[1]
         self.width = self.raw_img.shape[2]
         self.obj_nums = obj_nums
-        self.npexs = len(self.obj_nums)
+        self.nmitos = len(self.obj_nums)
         self.volumes = volumes
         self.volumes_flag = 'pixels'
         self.pdout = []
@@ -56,7 +56,7 @@ class PexSegmentObj:
         for key in mode_params:
             if hasattr(self, key):
                 raise AttributeError('Two copies of the attribute ' + key +
-                                     'were provided to PexSegmentObj.__init__()')
+                                     'were provided to MitoSegmentObj.__init__()')
             setattr(self, key, mode_params[key])
         if to_pdout != []:
             for x in to_pdout:
@@ -64,7 +64,7 @@ class PexSegmentObj:
 
 
     def __repr__(self):
-        return 'PexSegmentObj '+ self.filename
+        return 'MitoSegmentObj '+ self.filename
 
     def plot_raw_img(self,display = False):
         self.plot_stack(self.raw_img, colormap = 'gray')
@@ -94,14 +94,14 @@ class PexSegmentObj:
         if display == True:
             plt.show()
     def plot_watershed(self, display = False):
-        self.plot_stack(self.peroxisomes)
+        self.plot_stack(self.mitochondria)
         if display == True:
             plt.show()
 
     def output_all_images(self, output_dir = None):
         '''Write all images to a new subdirectory.
         
-        Write all images associated with the PexSegmentObj to a new
+        Write all images associated with the MitoSegmentObj to a new
         directory. Name that directory according to the filename of the initial
         image that the object was derived from. This new directory should be a
         subdirectory to the directory containing the original raw image.
@@ -120,10 +120,9 @@ class PexSegmentObj:
         io.imsave('dist_'+self.filename, self.dist_map)
         io.imsave('smooth_dist_'+self.filename,self.smooth_dist_map)
         io.imsave('maxima_'+self.filename,self.maxima)
-        io.imsave('wshed_'+self.filename,self.peroxisomes)
+        io.imsave('wshed_'+self.filename,self.mitochondria)
         if hasattr(self,'edges'):
             io.imsave('edges_'+self.filename,self.edges)
-
     def output_image(self, imageattr, output_dir = None):
         if output_dir == None:
             output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.tif')]
@@ -137,7 +136,7 @@ class PexSegmentObj:
     def output_plots(self):
         '''Write PDFs of slice-by-slice plots.
         
-        Output: PDF plots of each image within PexSegmentObj in a directory
+        Output: PDF plots of each image within MitoSegmentObj in a directory
         named for the original filename they were generated from. Plots are
         generated using the plot_stack method and plotting methods defined
         here.
@@ -228,26 +227,26 @@ class PexSegmentObj:
                true, any object with a pixel in the top or bottom image of the
                stack is removed.
 
-        output: alters the objects within the PexSegmentObj. removes objects
-        from the peroxisomes image, the obj_nums, and all other variables with
+        output: alters the objects within the MitoSegmentObj. removes objects
+        from the mitochondria image, the obj_nums, and all other variables with
         elements of obj_nums as keys in a dict (parents, volumes, etc)
         '''
 
-        border_mask = np.full(shape = self.peroxisomes.shape, fill_value = True,
+        border_mask = np.full(shape = self.mitochondria.shape, fill_value = True,
                               dtype = bool)
         if z == True:
             border_mask[border:-border,border:-border,border:-border] = False
         elif z == False:
             border_mask[:,border:-border,border:-border] = False
-        objs_to_rm = np.unique(self.peroxisomes[border_mask])
+        objs_to_rm = np.unique(self.mitochondria[border_mask])
         objs_to_rm = objs_to_rm[objs_to_rm != 0]
         for x in objs_to_rm:
-            self.peroxisomes[self.peroxisomes == x] = 0
+            self.mitochondria[self.mitochondria == x] = 0
             self.obj_nums.remove(x)
             self.volumes.pop(x, None)
             if hasattr(self, "parent"):
                 self.parent.pop(x, None)
-        self.npexs = len(self.obj_nums)
+        self.nmitos = len(self.obj_nums)
         self.border_rm_flag = True
 
 
@@ -331,7 +330,7 @@ class PexSegmentObj:
         '''remove all of the processing intermediates from the object, leaving
         only the core information required for later analysis. primarily
         intended for use when doing batch analysis of multiple images, and
-        combining PexSegmentObj instances with instances of other types of
+        combining MitoSegmentObj instances with instances of other types of
         objects segmented in a different fluorescence channel.
         '''
         del self.raw_img
@@ -385,7 +384,7 @@ class PexSegmentObj:
             f.set_figheight(4*np.ceil(nimgs/4))
 
 
-class PexSegmenter:
+class MitoSegmenter:
     
     def __init__(self,filename, seg_method = 'threshold', mode = 'threshold', **kwargs):
         self.filename = filename
@@ -409,7 +408,7 @@ class PexSegmenter:
                 if np.isnan(self.bg_diff):
                     raise ValueError('a bg_diff argument is needed if mode == bg_scaled.')
     def segment(self):
-        '''Segment peroxisomes within the image.'''
+        '''Segment mitochondria within the image.'''
         starttime = time.time() # begin timing
         f_directory = os.getcwd()
         pdout = []
@@ -467,7 +466,7 @@ class PexSegmenter:
             # watershed segmentation
             labs = self.watershed_labels(maxima)
             print('watershedding...')
-            peroxisomes = watershed(-smooth_dist, labs, mask = threshold_img)
+            mitochondria = watershed(-smooth_dist, labs, mask = threshold_img)
             print('watershedding complete.')
             if self.mode == 'bg_scaled':
                 edge_struct = generate_binary_structure(3,1)
@@ -478,14 +477,14 @@ class PexSegmenter:
                                                           binary_erosion(self.cells.final_cells== i,
                                                                          edge_struct))
                 print('cell edges found.')
-                self.primary_objs = [x for x in np.unique(peroxisomes) if x != 0]
+                self.primary_objs = [x for x in np.unique(mitochondria) if x != 0]
                 self.parent = {}
                 self.obj_edges = {}
                 self.on_edge = {}
-                pex_mask = peroxisomes != 0
+                mito_mask = mitochondria != 0
                 for obj in self.primary_objs:
                     self.parent[obj] = self.cells.final_cells[labs == obj][0]
-                    obj_mask = peroxisomes == obj
+                    obj_mask = mitochondria == obj
                     obj_edge = np.logical_xor(obj_mask, 
                                               binary_erosion(obj_mask,
                                                              edge_struct))
@@ -505,7 +504,7 @@ class PexSegmenter:
                             # IT! NOT SURE HOW MANY ITERATIONS ITS DOING, OR FOR
                             # HOW MANY DIFFERENT PEROXISOMES.
                             new_px = binary_dilation(search_obj, edge_struct)
-                            new_px[np.logical_or(new_obj, pex_mask)] = False
+                            new_px[np.logical_or(new_obj, mito_mask)] = False
                             print('iteration: ' + str(iteration))
                             # print('new pixels for iteration ' + str(iteration) + \
                             #      ': ')
@@ -520,7 +519,7 @@ class PexSegmenter:
                             #    print(np.nonzero(new_obj))
                                 search_obj = to_add # only search from new pixels
                             else:
-                                peroxisomes[new_obj] = obj
+                                mitochondria[new_obj] = obj
                                 tester = 1
                             iteration = iteration + 1
                     else:
@@ -528,7 +527,6 @@ class PexSegmenter:
         elif self.seg_method == 'canny':
             ## EDGE-DETECTION BASED SEGMENTATION ##
             threshold_img = np.empty_like(gaussian_img)
-            edge_img = np.empty_like(gaussian_img)
             c_strel = generate_binary_structure(2,1)
             for s in range(0,gaussian_img.shape[0]):
                 c = canny(gaussian_img[s,:,:],
@@ -536,7 +534,6 @@ class PexSegmenter:
                           low_threshold = self.low_threshold,
                           high_threshold = self.high_threshold)
                 c = binary_closing(c,c_strel)
-                edge_img[s,:,:] = np.copy(c)
                 c = binary_fill_holes(c)
                 c = binary_opening(c, c_strel) # eliminate incomplete lines
                 threshold_img[s,:,:] = c
@@ -558,10 +555,10 @@ class PexSegmenter:
             # watershed segmentation
             labs = self.watershed_labels(maxima)
             print('watershedding...')
-            peroxisomes = watershed(-smooth_dist, labs, mask = threshold_img)
+            mitochondria = watershed(-smooth_dist, labs, mask = threshold_img)
             print('watershedding complete.')
             if hasattr(self,'cells'):
-                self.primary_objs = [x for x in np.unique(peroxisomes) \
+                self.primary_objs = [x for x in np.unique(mitochondria) \
                                      if x != 0]
                 self.parent = {}
                 for obj in self.primary_objs:
@@ -570,9 +567,9 @@ class PexSegmenter:
                         self.primary_objs.remove(obj)
                     else:
                         self.parent[obj] = o_parent
-        for s in range(1,peroxisomes.shape[0]):
-            cslice = peroxisomes[s,:,:]
-            lslice = peroxisomes[s-1,:,:]
+        for s in range(1,mitochondria.shape[0]):
+            cslice = mitochondria[s,:,:]
+            lslice = mitochondria[s-1,:,:]
             for obj in np.unique(cslice)[np.unique(cslice)!= 0]:
                 lslice_vals, cts = np.unique(lslice[cslice == obj],
                                              return_counts = True)
@@ -586,9 +583,9 @@ class PexSegmenter:
                     # if >75% of pixels in the slice below obj are from another
                     # object, change obj to that object #
                     if float(ordered_by_ct[-1][1])/cslice[cslice == obj].size>0.5:
-                        peroxisomes[s,:,:][cslice == obj] = ordered_by_ct[-1][0]
+                        mitochondria[s,:,:][cslice == obj] = ordered_by_ct[-1][0]
         print('filtering out too-large and too-small objects...')
-        obj_nums, volumes = np.unique(peroxisomes, return_counts = True)
+        obj_nums, volumes = np.unique(mitochondria, return_counts = True)
         volumes = dict(zip(obj_nums.astype('uint16'), volumes))
         del volumes[0]
         obj_nums = obj_nums.astype('uint16').tolist()
@@ -610,7 +607,6 @@ class PexSegmenter:
         if self.seg_method == 'canny':
             mode_params['high_threshold'] = self.high_threshold
             mode_params['low_threshold'] = self.low_threshold
-            mode_params['edges'] = edge_img
             pdout.append('volumes')
         if self.seg_method == 'threshold':
             if self.mode == 'threshold':
@@ -626,28 +622,44 @@ class PexSegmenter:
                 mode_params['on_edge'] = self.on_edge
                 for x in ['thresholds','on_edge','parent', 'volumes']:
                     pdout.append(x)
-        return PexSegmentObj(f_directory, self.filename, raw_img,
+        return MitoSegmentObj(f_directory, self.filename, raw_img,
                              gaussian_img, self.seg_method, self.mode, 
                              threshold_img, dist_map, smooth_dist, maxima,
-                             labs, peroxisomes, obj_nums, volumes,
+                             labs, mitochondria, obj_nums, volumes,
                              to_pdout = pdout, mode_params = mode_params)
 
     ## HELPER METHODS ##
     def watershed_labels(self, maxima_img):
         '''Takes a boolean array with maxima labeled as true pixels
         and returns an array with maxima numbered sequentially.'''
-        
         max_z, max_y, max_x = np.nonzero(maxima_img)
-        
         label_output = np.zeros(maxima_img.shape)
-        
         for i in range(0,len(max_y)):
             label_output[max_z[i],max_y[i],max_x[i]] = i+1
-        
         return(label_output)
-
-    
+    def merge_wsheds(self, wshed_img):
+        '''Merge adjacent watersheds in a segmented image.'''
+        obj_nums = np.unique(wshed_img)
+        temp_img = np.copy(wshed_img)
+        for n in obj_nums:
+            if n == 0:
+               continue 
+            else:
+                if not np.any(temp_img == n):
+                    continue
+                tester = False
+                while not tester:
+                    n_img = temp_img == n
+                    dil_n = binary_dilation(n_img)
+                    overlap_objs = np.unique(temp_img[dil_n])
+                    overlap_objs = overlap_objs[overlap_objs != 0] #rm bgrd px
+                    if np.ndarray.size(overlap_objs) > 1:
+                        temp_img[np.in1d(temp_img,overlap_objs)] = n
+                    else:
+                        tester = True
+                        
 
 
 # TODO LIST:
     # # UPDATE LOG FILE PRINTING
+    # # FINISH IMPLEMENTING EDGES IMAGE
