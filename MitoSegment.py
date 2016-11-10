@@ -12,7 +12,7 @@ from operator import itemgetter
 import numpy as np
 import pandas as pd
 from skimage import io
-from skimage.morphology import watershed
+from skimage.morphology import watershed, disk
 from skimage.feature import canny
 from scipy.ndimage.filters import gaussian_filter, maximum_filter
 from scipy.ndimage.morphology import generate_binary_structure, binary_closing
@@ -418,7 +418,7 @@ class MitoSegmenter:
         print('raw image imported.')
         # gaussian filter assuming 100x objective and 0.2 um slices
         print('performing gaussian filtering...')
-        gaussian_img = gaussian_filter(raw_img, [1,1,1])
+        gaussian_img = gaussian_filter(raw_img, [0.75,0.75,0.75])
         print('cytosolic image smoothed.')
         print('preprocessing complete.')
         ## SEGMENTATION BY THRESHOLDING THE GAUSSIAN ##
@@ -525,18 +525,39 @@ class MitoSegmenter:
                     else:
                         self.on_edge[obj] = False
         elif self.seg_method == 'canny':
+            print('performing Canny edge detection-based segmentation')
             ## EDGE-DETECTION BASED SEGMENTATION ##
             threshold_img = np.empty_like(gaussian_img)
             c_strel = generate_binary_structure(2,1)
             for s in range(0,gaussian_img.shape[0]):
+                print('performing Canny edge detection on slice ' + str(s))
                 c = canny(gaussian_img[s,:,:],
                           sigma = 0,
                           low_threshold = self.low_threshold,
                           high_threshold = self.high_threshold)
+                print('cleaning up slice ' + str(s))
                 c = binary_closing(c,c_strel)
                 c = binary_fill_holes(c)
                 c = binary_opening(c, c_strel) # eliminate incomplete lines
+                c = binary_closing(c, c_strel) # clean up edges
                 threshold_img[s,:,:] = c
+            if self.min_cutoff:
+                print('generating holes using a minimum intensity cutoff')
+                print('of ' + str(self.min_cutoff))
+                threshold_img[gaussian_img < self.min_cutoff] = 0
+            v_merge_strel = np.array([[[0,0,0],
+                                       [0,1,0],
+                                       [0,0,0]],
+                                      [[0,0,0],
+                                       [0,1,0],
+                                       [0,0,0]],
+                                      [[0,0,0],
+                                       [0,1,0],
+                                       [0,0,0]]])
+            print('closing holes between slices...')
+            threshold_img = binary_closing(threshold_img,
+                                           structure=v_merge_strel)
+            print('generating distance map...')
             dist_map = distance_transform_edt(threshold_img, sampling = (3,1,1))
             print('distance map complete.')
             print('smoothing distance map...')
@@ -555,8 +576,11 @@ class MitoSegmenter:
             # watershed segmentation
             labs = self.watershed_labels(maxima)
             print('watershedding...')
-            mitochondria = watershed(-smooth_dist, labs, mask = threshold_img)
+            raw_wsheds = watershed(-smooth_dist, labs, mask = threshold_img)
             print('watershedding complete.')
+            print('merging adjacent watershed objects...')
+            mitochondria = self.merge_wsheds(raw_wsheds)
+            print('watershed merging complete.')
             if hasattr(self,'cells'):
                 self.primary_objs = [x for x in np.unique(mitochondria) \
                                      if x != 0]
@@ -567,39 +591,8 @@ class MitoSegmenter:
                         self.primary_objs.remove(obj)
                     else:
                         self.parent[obj] = o_parent
-        for s in range(1,mitochondria.shape[0]):
-            cslice = mitochondria[s,:,:]
-            lslice = mitochondria[s-1,:,:]
-            for obj in np.unique(cslice)[np.unique(cslice)!= 0]:
-                lslice_vals, cts = np.unique(lslice[cslice == obj],
-                                             return_counts = True)
-                lslice_vals = lslice_vals.tolist()
-                cts = cts.tolist()
-                ordered_by_ct = sorted(zip(lslice_vals, cts),
-                                       key = itemgetter(1))
-                if ordered_by_ct[-1][0] == 0 or ordered_by_ct[-1][0] == obj:
-                    continue
-                else:
-                    # if >75% of pixels in the slice below obj are from another
-                    # object, change obj to that object #
-                    if float(ordered_by_ct[-1][1])/cslice[cslice == obj].size>0.5:
-                        mitochondria[s,:,:][cslice == obj] = ordered_by_ct[-1][0]
         print('filtering out too-large and too-small objects...')
         obj_nums, volumes = np.unique(mitochondria, return_counts = True)
-        volumes = dict(zip(obj_nums.astype('uint16'), volumes))
-        del volumes[0]
-        obj_nums = obj_nums.astype('uint16').tolist()
-        obj_nums.remove(0)
-        for obj in obj_nums:
-            if volumes[obj] > 3000:
-                # delete the object AND exclude its parent cell from analysis
-                if hasattr(self, 'cells'):
-                    self.cells.obj_nums.remove(self.parent[obj])
-                    self.cells.final_cells[self.cells_final_cells == 
-                                           self.parent[obj]] = 0
-                    del volumes[obj]
-                    obj_nums.remove(obj)
-        # merge objects that segmented into diff objects by Z slice
         mode_params = {}
         if hasattr(self, 'parent'):
             pdout.append('parent')
@@ -641,6 +634,21 @@ class MitoSegmenter:
         '''Merge adjacent watersheds in a segmented image.'''
         obj_nums = np.unique(wshed_img)
         temp_img = np.copy(wshed_img)
+        dil_strel = np.array([[[0,0,0],
+                               [0,1,0],
+                               [0,0,0]],
+                              [[0,0,0],
+                               [0,1,0],
+                               [0,0,0]],
+                              [[0,1,0],
+                               [1,1,1],
+                               [0,1,0]],
+                              [[0,0,0],
+                               [0,1,0],
+                               [0,0,0]],
+                              [[0,0,0],
+                               [0,1,0],
+                               [0,0,0]]]) # increase connectivity across Z axis
         for n in obj_nums:
             if n == 0:
                continue 
@@ -648,18 +656,23 @@ class MitoSegmenter:
                 if not np.any(temp_img == n):
                     continue
                 tester = False
+                iteration = 1
+                print('testing object #' + str(n))
                 while not tester:
+                    print('iteration #' + str(iteration))
                     n_img = temp_img == n
                     dil_n = binary_dilation(n_img)
                     overlap_objs = np.unique(temp_img[dil_n])
+                    print('overlapping objects:')
+                    print(overlap_objs)
                     overlap_objs = overlap_objs[overlap_objs != 0] #rm bgrd px
-                    if np.ndarray.size(overlap_objs) > 1:
-                        temp_img[np.in1d(temp_img,overlap_objs)] = n
+                    if overlap_objs.size > 1:
+                        temp_img[np.in1d(temp_img,overlap_objs).reshape(temp_img.shape)] = n
+                        iteration = iteration + 1
                     else:
                         tester = True
+        return temp_img
                         
-
-
 # TODO LIST:
     # # UPDATE LOG FILE PRINTING
     # # FINISH IMPLEMENTING EDGES IMAGE
