@@ -169,10 +169,12 @@ class MitoSegmentObj:
         self.plot_watershed()
         plt.savefig('pwshed_' +
                     self.filename[0:self.filename.index('.tif')]+'.pdf')
-    def pickle(self, output_dir = None):
-        '''pickle the CellSegmentObj for later loading.'''
+    def pickle(self, output_dir = None, filename = None):
+        '''pickle the MitoSegmentObj for later loading.'''
         if output_dir == None:
             output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.tif')]
+        if filename == None:
+            filename = self.filename[0:self.filename.index('.tif')] + '.pickle'
         if not os.path.isdir(output_dir):
             print('creating output directory...')
             os.mkdir(output_dir)
