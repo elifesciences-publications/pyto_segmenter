@@ -106,7 +106,6 @@ class MitoSegmentObj:
         image that the object was derived from. This new directory should be a
         subdirectory to the directory containing the original raw image.
         '''
-        os.chdir(self.f_directory)
         if output_dir == None:
             output_dir = self.f_directory + '/' + self.filename[0:self.filename.index('.tif')]
         if not os.path.isdir(output_dir):
@@ -179,9 +178,7 @@ class MitoSegmentObj:
             print('creating output directory...')
             os.mkdir(output_dir)
         os.chdir(output_dir)
-        with open('pickled_' +
-                    self.filename[0:self.filename.index('.tif')] + 
-                  '.pickle', 'wb') as f:
+        with open(filename, 'wb') as f:
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
         f.close()
     def output_all(self):
