@@ -590,8 +590,11 @@ class MitoSegmenter:
                         self.primary_objs.remove(obj)
                     else:
                         self.parent[obj] = o_parent
-        print('filtering out too-large and too-small objects...')
         obj_nums, volumes = np.unique(mitochondria, return_counts = True)
+        volumes=dict(zip(obj_nums.astype('uint16'),volumes))
+        del volumes[0]
+        obj_nums = obj_nums.astype('uint16').tolist()
+        obj_nums.remove(0)
         mode_params = {}
         if hasattr(self, 'parent'):
             pdout.append('parent')
