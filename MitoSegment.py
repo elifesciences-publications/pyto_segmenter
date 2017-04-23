@@ -604,7 +604,8 @@ class MitoSegmenter:
         if self.seg_method == 'canny':
             mode_params['high_threshold'] = self.high_threshold
             mode_params['low_threshold'] = self.low_threshold
-            pdout.append('volumes')
+            mode_params['edges'] = edge_img
+           pdout.append('volumes')
         if self.seg_method == 'threshold':
             if self.mode == 'threshold':
                 mode_params['threshold'] = self.threshold
@@ -613,7 +614,6 @@ class MitoSegmenter:
                 mode_params['thresholds'] = self.thresholds
                 mode_params['bg_diff'] = self.bg_diff
                 mode_params['cells'] = self.cells
-                mode_params['edges'] = edge_img
                 mode_params['cell_edges'] = self.c_edges
                 mode_params['cell_nums'] = self.cells.obj_nums
                 mode_params['obj_edges'] = self.obj_edges
