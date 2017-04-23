@@ -527,6 +527,7 @@ class MitoSegmenter:
             print('performing Canny edge detection-based segmentation')
             ## EDGE-DETECTION BASED SEGMENTATION ##
             threshold_img = np.empty_like(gaussian_img)
+            edge_img = np.empty_like(gaussian_img)
             c_strel = generate_binary_structure(2,1)
             for s in range(0,gaussian_img.shape[0]):
                 print('performing Canny edge detection on slice ' + str(s))
@@ -536,6 +537,7 @@ class MitoSegmenter:
                           high_threshold = self.high_threshold)
                 print('cleaning up slice ' + str(s))
                 c = binary_closing(c,c_strel)
+                edge_img[s,:,:] = np.copy(c)
                 c = binary_fill_holes(c)
                 c = binary_opening(c, c_strel) # eliminate incomplete lines
                 c = binary_closing(c, c_strel) # clean up edges
@@ -611,6 +613,7 @@ class MitoSegmenter:
                 mode_params['thresholds'] = self.thresholds
                 mode_params['bg_diff'] = self.bg_diff
                 mode_params['cells'] = self.cells
+                mode_paras['edges'] = edge_img
                 mode_params['cell_edges'] = self.c_edges
                 mode_params['cell_nums'] = self.cells.obj_nums
                 mode_params['obj_edges'] = self.obj_edges
