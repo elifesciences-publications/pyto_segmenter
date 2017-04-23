@@ -613,7 +613,7 @@ class MitoSegmenter:
                 mode_params['thresholds'] = self.thresholds
                 mode_params['bg_diff'] = self.bg_diff
                 mode_params['cells'] = self.cells
-                mode_paras['edges'] = edge_img
+                mode_params['edges'] = edge_img
                 mode_params['cell_edges'] = self.c_edges
                 mode_params['cell_nums'] = self.cells.obj_nums
                 mode_params['obj_edges'] = self.obj_edges
