@@ -605,7 +605,7 @@ class MitoSegmenter:
             mode_params['high_threshold'] = self.high_threshold
             mode_params['low_threshold'] = self.low_threshold
             mode_params['edges'] = edge_img
-           pdout.append('volumes')
+            pdout.append('volumes')
         if self.seg_method == 'threshold':
             if self.mode == 'threshold':
                 mode_params['threshold'] = self.threshold
