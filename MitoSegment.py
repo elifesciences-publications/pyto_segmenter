@@ -678,6 +678,3 @@ class MitoSegmenter:
                         tester = True
         return temp_img
                         
-# TODO LIST:
-    # # UPDATE LOG FILE PRINTING
-    # # FINISH IMPLEMENTING EDGES IMAGE

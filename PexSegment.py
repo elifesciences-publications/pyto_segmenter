@@ -386,7 +386,8 @@ class PexSegmentObj:
 
 class PexSegmenter:
     
-    def __init__(self,filename, seg_method = 'threshold', mode = 'threshold', **kwargs):
+    def __init__(self,filename, seg_method = 'threshold', mode = 'threshold',
+                 g_filter = 1, **kwargs):
         self.filename = filename
         self.seg_method = seg_method
         self.mode = mode
@@ -418,8 +419,8 @@ class PexSegmenter:
         print('raw image imported.')
         # gaussian filter assuming 100x objective and 0.2 um slices
         print('performing gaussian filtering...')
-        gaussian_img = gaussian_filter(raw_img, [1,1,1])
-        print('cytosolic image smoothed.')
+        gaussian_img = gaussian_filter(raw_img, [g_filter,g_filter,1])
+        print('image smoothed.')
         print('preprocessing complete.')
         ## SEGMENTATION BY THRESHOLDING THE GAUSSIAN ##
         if self.seg_method == 'threshold':
