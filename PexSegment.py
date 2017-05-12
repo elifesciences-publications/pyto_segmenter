@@ -391,6 +391,7 @@ class PexSegmenter:
         self.filename = filename
         self.seg_method = seg_method
         self.mode = mode
+        self.g_filter = g_filter
         for key, value in kwargs.items():
             setattr(self,key,value)
         if self.seg_method == 'canny':
@@ -419,8 +420,8 @@ class PexSegmenter:
         print('raw image imported.')
         # gaussian filter assuming 100x objective and 0.2 um slices
         print('performing gaussian filtering...')
-        gaussian_img = gaussian_filter(raw_img, [g_filter,g_filter,1])
-        print('image smoothed.')
+        gaussian_img = gaussian_filter(raw_img, [self.g_filter,self.g_filter,1])
+        print('Image smoothed.')
         print('preprocessing complete.')
         ## SEGMENTATION BY THRESHOLDING THE GAUSSIAN ##
         if self.seg_method == 'threshold':
