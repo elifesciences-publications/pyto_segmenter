@@ -116,9 +116,7 @@ class PexSegmentObj:
             to_csv() and to_pandas() for output. Assigned by
             PexSegmenter.segment().
         border_rm_flag (bool): Indication of whether or not objects on the edge
-            of the iamge are removed. Defaults to False.
-
-
+            of the image are removed. Defaults to False.
     '''
     def __init__(self, f_directory, filename, raw_img, gaussian_img, 
                  seg_method, mode, threshold_img, dist_map,
@@ -198,7 +196,7 @@ class PexSegmentObj:
         if display == True:
             plt.show()
     def plot_watershed(self, display = False):
-         '''Plot the gaussian image using matplotlib.'''
+         '''Plot the segmented objects image using matplotlib.'''
         self.plot_stack(self.peroxisomes)
         if display == True:
             plt.show()
@@ -465,6 +463,7 @@ class PexSegmentObj:
             f.set_figheight(4*np.ceil(nimgs/4))
 
     def plot_maxima_stack(self, masked_max, smooth_dist):
+
         ''' Creates a matplotlib plot object in which each slice from the image
         is displayed as a single subplot, in a 4-by-n matrix (n depends upon
         the number of slices in the image)'''
@@ -746,7 +745,7 @@ class PexSegmenter:
                           sigma = 0,
                           low_threshold = self.low_threshold,
                           high_threshold = self.high_threshold)
-                # clean up object edges with gaps
+                # clean up object edges that have gaps
                 c = binary_closing(c,c_strel)
                 edge_img[s,:,:] = np.copy(c)
                 # fill holes to generate binary mask of objects
@@ -811,7 +810,7 @@ class PexSegmenter:
         print('filtering out too-large and too-small objects...')
         obj_nums, volumes = np.unique(peroxisomes, return_counts = True)
         volumes = dict(zip(obj_nums.astype('uint16'), volumes))
-        # remove objects that have 0 pixels assigned (i.e. merged with another)
+        # remove the background
         del volumes[0]
         obj_nums = obj_nums.astype('uint16').tolist()
         obj_nums.remove(0)
@@ -866,12 +865,8 @@ class PexSegmenter:
         Yields:
             A numpy ndarray with maxima numbered sequentially.
         '''
-        
         max_z, max_y, max_x = np.nonzero(maxima_img)
-        
         label_output = np.zeros(maxima_img.shape)
-        
         for i in range(0,len(max_y)):
             label_output[max_z[i],max_y[i],max_x[i]] = i+1
-        
         return(label_output)
