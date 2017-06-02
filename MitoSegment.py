@@ -148,10 +148,10 @@ class MitoSegmentObj:
         self.border_rm_flag = False
         for key in mode_params:
         # raise an error if an attribute is somehow passed twice
-        if hasattr(self, key):
-                raise AttributeError('Two copies of the attribute ' + key +
+            if hasattr(self, key):
+                raise AttributeError('Two copies of the attribute ' + key + 
                                      'were provided to MitoSegmentObj.__init__()')
-            setattr(self, key, mode_params[key])
+                setattr(self, key, mode_params[key])
         if to_pdout != []:
             for x in to_pdout:
                 self.pdout.append(x)
@@ -196,9 +196,9 @@ class MitoSegmentObj:
             plt.show()
     def plot_watershed(self, display = False):
          '''Plot the segmented objects image using matplotlib.'''
-        self.plot_stack(self.mitochondria)
-        if display == True:
-            plt.show()
+         self.plot_stack(self.mitochondria)
+         if display == True:
+             plt.show()
 
     def output_all_images(self, output_dir = None):
         '''Write all images to a new directory.
@@ -234,7 +234,7 @@ class MitoSegmentObj:
             io.imsave('edges_'+self.filename,self.edges)
 
     def output_image(self, imageattr, output_dir = None):
-         '''Write one specific image attribute to a new directory.
+        '''Write one specific image attribute to a new directory.
         
         Write an image associated with the MitoSegmentObj to a new directory. 
         Name that directory according to the filename of the initial image that
