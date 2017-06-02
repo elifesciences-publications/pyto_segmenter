@@ -197,9 +197,9 @@ class PexSegmentObj:
             plt.show()
     def plot_watershed(self, display = False):
          '''Plot the segmented objects image using matplotlib.'''
-        self.plot_stack(self.peroxisomes)
-        if display == True:
-            plt.show()
+         self.plot_stack(self.peroxisomes)
+         if display == True:
+             plt.show()
 
     def output_all_images(self, output_dir = None):
         '''Write all images to a new directory.
@@ -235,7 +235,7 @@ class PexSegmentObj:
             io.imsave('edges_'+self.filename,self.edges)
 
     def output_image(self, imageattr, output_dir = None):
-         '''Write one specific image attribute to a new directory.
+        '''Write one specific image attribute to a new directory.
         
         Write an image associated with the PexSegmentObj to a new directory. 
         Name that directory according to the filename of the initial image that
