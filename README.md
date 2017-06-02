@@ -1,24 +1,40 @@
 # pyto_segmenter
 
-Readme last updated 5.1.2016
+### developer: Nicholas Weir, Ph.D. Student, Denic Laboratory, Harvard University
+### emai l: nweir a.t fas do t harvard (dot) edu
 
-## NOTE: 
-###THIS PROJECT IS IN ACTIVE DEVELOPMENT AND IS NOT CURRENTLY PREPARED FOR DISTRIBUTION. IF YOU'RE INTERESTED IN USING THE CODE IN THIS PROJECT IN THE SHORT TERM, I RECOMMEND CONTACTING ME DIRECTLY.
 
-###developer: Nicholas Weir, Ph.D. Student, Denic Laboratory, Harvard University
-emai l: nweir a.t fas do t harvard (dot) edu
+## Purpose:
+This package was developed to identify cells, foci, and reticular structures from Z-stack fluorescence microscopy images (multipage TIFF format). It was developed during preparation of [Weir et al. 2017](https://doi.org/10.1101/136572).
+__Please cite this manuscript if you use this package!__
+
+## Installation:
+As with any python module, clone the repository into your PYTHONPATH.
+
+### Dependencies:
+- python 3.x __Not compatible with Python 2__
+- [matplotlib](https://matplotlib.org/)
+- [scikit-image](http://scikit-image.org/)
+- [NumPy](http://www.numpy.org/)
+- [SciPy](https://www.scipy.org/)
 
 This in-development module is intended for segmenting _Saccharomyces cerevisiae_ cells (or other roughly elliptical cells) using the signal from a cytosolically-localized fluorescent protein in fluorescence microscopy z-stacks. It is not perfect, and segmented cells require pruning post-hoc to eliminate poorly segmented cells (~5-20% when imaged cells are present in a single layer, more otherwise).
 
-##Contents:
-###CellSegment.py
-Classes and methods for identifying whole cells expressing a cytosolic marker, along with saving intermediates produced during the process and the segmented output.
-###PexSegment.py
-Classes and methods for segmenting small foci using a Canny algorithm (or using more basic thresholding methods if desired - see code). Has methods to save intermediate images/output images as well as outputting segmented objects for further analysis.
-###PytoSegment.py
-Classes and methods for merging objects acquired in different channels (e.g. assign peroxisomes to "parent" cells).
+## Contents:
 
-_Please cite this work if you use it!_ 
+### PexSegment.py
+Classes and methods for segmenting small foci using a Canny algorithm (or using more basic thresholding methods if desired - see docstrings). Has methods to save intermediate images/output images as well as outputting segmented objects for further analysis.
+### MitoSegment.py
+Based on PexSegment.py, the classes provided here perform two additional steps:
+- merging contiguous objects to generate longer reticular structures
+- emptying holes in donut-shaped objects to avoid erroneous segmentation
 
-[![DOI](https://zenodo.org/badge/16661/nrweir/pyto_segmenter.svg)](https://zenodo.org/badge/latestdoi/16661/nrweir/pyto_segmenter)
+### PytoSegment.py
+Classes and methods for merging objects acquired in different channels (e.g. assign peroxisomes to "parent" cells). This code is still in active development.
+### CellSegment.py
+Classes and methods for identifying whole cells expressing a cytosolic marker fluorescent protein based on a Z-stack image. This was designed for roughly elliptical cells such as _Saccharomyces cerevisiae_. It does not do well when cells are not present in a single layer. See docstrings for additional details. This code is stil in active development.
 
+## Usage examples
+For usage examples, see the parallel repository for Weir et al. 2017 figure generation scripts in [The Denic Lab](https://github.com/deniclab)
+
+Readme last updated 5.24.2017
