@@ -1,3 +1,8 @@
+
+
+### This code is associated with the paper from Weir et al., "The AAA protein Msp1 mediates clearance of excess tail-anchored proteins from the peroxisomal membrane". eLife, 2017. http://dx.doi.org/10.7554/eLife.28507
+
+
 # pyto_segmenter
 
 ### developer: Nicholas Weir, Ph.D. Student, Denic Laboratory, Harvard University
